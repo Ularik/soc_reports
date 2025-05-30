@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h1>Детали отчета от {{ report.detection_date }}</h1>
+  <ul>
+    <li><strong>Тип угрозы:</strong> {{ report.attack_type.name }} {% if report.attack_type.cve %}({{ report.attack_type.cve }}){% endif %}</li>
+    <li><strong>Источник:</strong> {{ report.source_ip }}</li>
+    <li><strong>Адрес назначения:</strong> {{ report.destination_ip }}</li>
+    <li><strong>Средство обнаружения:</strong> {{ report.detection_tool }}</li>
+    <li><strong>Краткое описание:</strong> {{ report.short_description }}</li>
+    <li><strong>Методы атаки:</strong> {{ report.methods }}</li>
+    <li><strong>Протоколы и порты:</strong> {{ report.protocols_ports }}</li>
+    <li><strong>Оценка риска:</strong> {{ report.risk_assessment }}</li>
+    <li><strong>Потенциальные последствия:</strong> {{ report.potential_impact }}</li>
+    <li><strong>Payload:</strong><pre>{{ report.payload }}</pre></li>
+    <li><strong>Реагирование:</strong> {{ report.response_actions }}</li>
+    <li><strong>Организация:</strong> {{ report.organization }}</li>
+  </ul>
+  <p>
+<a href="{% url 'reports:report_list' %}?start={{ start }}&end={{ end }}">
+  ← Назад
+</a>
+  </p>
+{% endblock %}

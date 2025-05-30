@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Новый отчет{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-primary text-white">
+      <h2 class="mb-0">Создание нового отчета</h2>
+    </div>
+    <div class="card-body">
+      <form method="post" class="row g-4">
+        {% csrf_token %}
+        <!-- Общие сведения -->
+        <div class="col-md-6">
+          <label for="id_organization" class="form-label">Организация</label>
+          {{ form.organization }}
+          {{ form.organization.errors }}
+        </div>
+        <div class="col-md-6">
+          <label for="id_detection_date" class="form-label">Дата и время выявления угрозы</label>
+          {{ form.detection_date }}
+          {{ form.detection_date.errors }}
+        </div>
+        <div class="col-md-6">
+          <label for="id_attack_type" class="form-label">Тип угрозы</label>
+          {{ form.attack_type }}
+          {{ form.attack_type.errors }}
+        </div>
+        <div class="col-md-6">
+          <label for="id_detection_tool" class="form-label">Средство обнаружения</label>
+          {{ form.detection_tool }}
+          {{ form.detection_tool.errors }}
+        </div>
+
+        <!-- IP-адреса -->
+        <div class="col-md-6">
+          <label for="id_source_ip" class="form-label">Источник угрозы</label>
+          {{ form.source_ip }}
+          {{ form.source_ip.errors }}
+        </div>
+        <div class="col-md-6">
+          <label for="id_destination_ip" class="form-label">Адрес назначения</label>
+          {{ form.destination_ip }}
+          {{ form.destination_ip.errors }}
+        </div>
+
+        <!-- Детали атаки -->
+        <div class="col-12">
+          <label for="id_short_description" class="form-label">Краткое описание</label>
+          {{ form.short_description }}
+          {{ form.short_description.errors }}
+        </div>
+        <div class="col-md-6">
+          <label for="id_methods" class="form-label">Методы атаки</label>
+          {{ form.methods }}
+          {{ form.methods.errors }}
+        </div>
+        <div class="col-md-6">
+          <label for="id_protocols_ports" class="form-label">Протоколы и порты</label>
+          {{ form.protocols_ports }}
+          {{ form.protocols_ports.errors }}
+        </div>
+        <div class="col-md-6">
+          <label for="id_risk_assessment" class="form-label">Критичность</label>
+          {{ form.risk_assessment }}
+          {{ form.risk_assessment.errors }}
+        </div>
+        <div class="col-12">
+          <label for="id_potential_impact" class="form-label">Потенциальные последствия</label>
+          {{ form.potential_impact }}
+          {{ form.potential_impact.errors }}
+        </div>
+        <div class="col-12">
+          <label for="id_payload" class="form-label">Payload</label>
+          {{ form.payload }}
+          {{ form.payload.errors }}
+        </div>
+        <div class="col-12">
+          <label for="id_response_actions" class="form-label">Реагирование на инцидент</label>
+          {{ form.response_actions }}
+          {{ form.response_actions.errors }}
+        </div>
+
+<div class="col-12 text-center mt-3">
+  <button type="submit" name="action" value="save" class="btn btn-primary px-4 me-2">
+    Сохранить отчет
+  </button>
+</div>
+
+      </form>
+
+    </div>
+  </div>
+</div>
+
+{% if request.GET.download %}
+  {% url 'reports:report_pdf' request.GET.download as pdf_url %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // создаём невидимый iframe, чтобы стартанул download без ухода со страницы
+      var iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = "{{ pdf_url }}";
+      document.body.appendChild(iframe);
+    });
+  </script>
+{% endif %}
+
+
+
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    // Автоматическая нумерация в textarea "Реагирование на инцидент"
+    document.addEventListener('DOMContentLoaded', function() {
+      const textarea = document.getElementById('id_response_actions');
+      if (!textarea) return;
+      textarea.addEventListener('focus', function() {
+        if (this.value.trim() === '') {
+          this.value = '1) ';
+        }
+      });
+      textarea.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const lines = this.value.split('\n');
+          const nextNum = lines.length + 1;
+          this.value += '\n' + nextNum + ') ';
+          // Перемещаем курсор в конец
+          this.selectionStart = this.selectionEnd = this.value.length;
+        }
+      });
+    });
+  </script>
+
+  <script>
+    // Карта описаний по типам атак
+    const descMap = {{ attacktype_descriptions|safe }};
+    // Элементы формы
+    const selectAttack = document.getElementById('id_attack_type');
+    const descField    = document.getElementById('id_short_description');
+    // При изменении типа атаки подставляем описание
+    selectAttack.addEventListener('change', () => {
+      const val = selectAttack.value;
+      descField.value = descMap[val] || '';
+    });
+  </script>
+{% endblock %}

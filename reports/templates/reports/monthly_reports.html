@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Ежемесячные отчеты{% endblock %}
+
+{% block content %}
+  <h1>Ежемесячные отчеты</h1>
+  <div class="mb-3 text-end">
+    <a href="{% url 'reports:report_monthly_export' %}?org={{ selected_org }}&start={{ selected_start }}&end={{ selected_end }}" class="btn btn-secondary">
+      Экспорт в Word
+    </a>
+  </div>
+
+  <form method="get" class="row g-3 mb-4">
+    <div class="col-auto">
+      <label for="org" class="form-label">Организация:</label>
+      <select name="org" id="org" class="form-select">
+        <option value="">— выбрать —</option>
+        {% for org in organizations %}
+          <option value="{{ org.pk }}" {% if selected_org == org.pk %}selected{% endif %}>{{ org.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-auto">
+      <label for="start" class="form-label">С:</label>
+      <input type="date" id="start" name="start" class="form-control" value="{{ selected_start }}">
+    </div>
+    <div class="col-auto">
+      <label for="end" class="form-label">По:</label>
+      <input type="date" id="end" name="end" class="form-control" value="{{ selected_end }}">
+    </div>
+    <div class="col-auto align-self-end">
+      <button type="submit" class="btn btn-primary">Показать</button>
+    </div>
+  </form>
+
+  {% if reports %}
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="org"   value="{{ selected_org }}">
+      <input type="hidden" name="start" value="{{ selected_start }}">
+      <input type="hidden" name="end"   value="{{ selected_end }}">
+
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>№</th>
+            <th>Destination IP</th>
+            <th>Source IP</th>
+            <th>Предупреждение</th>
+            <th>Критичность</th>
+            <th>Изменить Критичность</th>
+            <th>Примечание</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in reports %}
+            <tr>
+              <td>{{ forloop.counter }}</td>
+              <td>
+                {% for ip in row.destination_ips %}
+                  {{ ip }}<br>
+                {% endfor %}
+              </td>
+              <td>{{ row.source_ip }}</td>
+              <td>{{ row.warning }}</td>
+              <td>{{ row.priority }}</td>
+              <td>
+                <select name="manual_priority_{{ row.rec.pk }}" class="form-select">
+                  <option value="">— выбрать —</option>
+                  {% for level,label in risk_levels %}
+                    <option value="{{ level }}">{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td>{{ row.requests }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <button type="submit" class="btn btn-success">Сохранить изменения</button>
+    </form>
+  {% else %}
+    <p class="text-muted">Нет данных для выбранных параметров.</p>
+  {% endif %}
+{% endblock %}
