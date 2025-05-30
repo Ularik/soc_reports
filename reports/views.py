@@ -24,7 +24,7 @@ from .forms import ReportForm
 
 # Регистрация TTF-шрифта (путь укажите свой)
 pdfmetrics.registerFont(
-    TTFont('TimesNewRoman', r'C:\Windows\Fonts\times.ttf')
+    TTFont('TimesNewRoman', r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf')
 )
 
 class ReportCreateView(CreateView):
