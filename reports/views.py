@@ -24,7 +24,7 @@ from .forms import ReportForm
 
 # Регистрация TTF-шрифта (путь укажите свой)
 pdfmetrics.registerFont(
-    TTFont('TimesNewRoman', r'C:\Windows\Fonts\times.ttf')
+    TTFont('TimesNewRoman', r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf')
 )
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -59,7 +59,7 @@ class ReportDownloadView(View):
         report = get_object_or_404(Report, pk=pk)
 
         buffer = BytesIO()
-        pdfmetrics.registerFont(TTFont('TimesNewRoman', r'C:\Windows\Fonts\times.ttf'))
+        pdfmetrics.registerFont(TTFont('TimesNewRoman', r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf'))
         doc = SimpleDocTemplate(
             buffer, pagesize=A4,
             rightMargin=40, leftMargin=40,
