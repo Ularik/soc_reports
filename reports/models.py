@@ -83,3 +83,9 @@ class Report(models.Model):
 
     def __str__(self):
         return f"{self.attack_type.name} – {self.detection_date.strftime('%Y-%m-%d')} ({self.organization})"
+
+    # def save(self, *args, **kwargs):
+    #
+    #     report = super().save(*args, **kwargs)
+    #
+    #     return super().save()

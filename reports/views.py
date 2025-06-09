@@ -1,10 +1,10 @@
 import json
 from datetime import datetime, timedelta, time
 from io import BytesIO
-
+from django.http import FileResponse
 from django.contrib import messages
-from django.db.models import Count, Min, Max
-from django.core.exceptions import ValidationError
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse
 from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse_lazy
@@ -24,9 +24,10 @@ from .forms import ReportForm
 
 # Регистрация TTF-шрифта (путь укажите свой)
 pdfmetrics.registerFont(
-    TTFont('TimesNewRoman', r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf')
+    TTFont('TimesNewRoman', r'C:\Windows\Fonts\times.ttf')
 )
 
+@method_decorator(csrf_exempt, name='dispatch')
 class ReportCreateView(CreateView):
     model = Report
     form_class = ReportForm
@@ -96,8 +97,8 @@ class ReportDownloadView(View):
         doc.build(elems)
         buffer.seek(0)
 
-        resp = HttpResponse(buffer, content_type='application/pdf')
-        resp['Content-Disposition'] = f'attachment; filename="report_{pk}.pdf"'
+        name = f'report{pk}.pdf'
+        resp = FileResponse(buffer, as_attachment=True, filename=name, content_type='application/pdf')
         return resp
 
 
