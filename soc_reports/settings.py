@@ -27,6 +27,7 @@ DEBUG = False
 import os
 
 ALLOWED_HOSTS = ['*']
+CSRF_TRUSTED_ORIGINS = ['http://192.168.100.104:8080', 'http://192.168.51.202:8080']
 
 
 # Application definition
