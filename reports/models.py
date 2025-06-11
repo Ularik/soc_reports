@@ -44,7 +44,7 @@ class AttackType(models.Model):
         default='Низкая'
     )
     potential_impact = models.TextField("Потенциальные последствия", blank=True)
-    data = models.CharField(max_length=200)
+    data = models.TextField(blank=True, null=True)
     response_actions = models.TextField("Реагирование на инцидент", blank=True)
 
     class Meta:
