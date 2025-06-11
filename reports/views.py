@@ -106,7 +106,7 @@ class ReportDownloadView(View):
         doc.build(elems)
         buffer.seek(0)
 
-        name = f'report{pk}.pdf'
+        name = f'{report.organization.name} {report.source_ip}.pdf'
         resp = FileResponse(buffer, as_attachment=True, filename=name, content_type='application/pdf')
         return resp
 
