@@ -24,7 +24,7 @@ class AttackTypeForm(forms.ModelForm):
 @admin.register(AttackType)
 class AttackTypeAdmin(admin.ModelAdmin):
     form = AttackTypeForm
-    list_display = ('name', 'cve')
+    list_display = ('name',)
     search_fields = ('name',)
 
 

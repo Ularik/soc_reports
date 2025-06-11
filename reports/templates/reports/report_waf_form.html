@@ -13,24 +13,19 @@
         {% csrf_token %}
         <!-- Общие сведения -->
         <div class="col-md-6">
-          <label for="id_organization" class="form-label">Организация</label>
-          {{ form.organization }}
-          {{ form.organization.errors }}
-        </div>
-        <div class="col-md-6">
           <label for="id_detection_date" class="form-label">Дата и время выявления угрозы</label>
           {{ form.detection_date }}
           {{ form.detection_date.errors }}
         </div>
         <div class="col-md-6">
+          <label for="id_organization" class="form-label">Организация</label>
+          {{ form.organization }}
+          {{ form.organization.errors }}
+        </div>
+        <div class="col-md-6">
           <label for="id_attack_type" class="form-label">Тип угрозы</label>
           {{ form.attack_type }}
           {{ form.attack_type.errors }}
-        </div>
-        <div class="col-md-6">
-          <label for="id_detection_tool" class="form-label">Средство обнаружения</label>
-          {{ form.detection_tool }}
-          {{ form.detection_tool.errors }}
         </div>
 
         <!-- IP-адреса -->
@@ -43,6 +38,23 @@
           <label for="id_destination_ip" class="form-label">Адрес назначения</label>
           {{ form.destination_ip }}
           {{ form.destination_ip.errors }}
+        </div>
+
+        <div id="cve-block" class="col-md-6">
+          <label for="id_cve" class="form-label">CVE</label>
+          {{ form.cve }}
+          {{ form.cve.errors }}
+        </div>
+
+        <div id="host-block" style="display: none" class="col-md-6">
+          <label for="id_host" class="form-label">Host</label>
+          {{ form.host }}
+          {{ form.host.errors }}
+        </div>
+        <div class="col-md-6">
+          <label for="id_detection_tool" class="form-label">Средство обнаружения</label>
+          {{ form.detection_tool }}
+          {{ form.detection_tool.errors }}
         </div>
 
         <!-- Детали атаки -->
@@ -61,20 +73,20 @@
           {{ form.protocols_ports }}
           {{ form.protocols_ports.errors }}
         </div>
+        <div class="col-12">
+          <label for="id_potential_impact" class="form-label">Потенциальные последствия</label>
+          {{ form.potential_impact }}
+          {{ form.potential_impact.errors }}
+        </div>
         <div class="col-md-6">
           <label for="id_risk_assessment" class="form-label">Критичность</label>
           {{ form.risk_assessment }}
           {{ form.risk_assessment.errors }}
         </div>
         <div class="col-12">
-          <label for="id_potential_impact" class="form-label">Потенциальные последствия</label>
-          {{ form.potential_impact }}
-          {{ form.potential_impact.errors }}
-        </div>
-        <div class="col-12">
-          <label for="id_payload" class="form-label">Payload</label>
-          {{ form.payload }}
-          {{ form.payload.errors }}
+          <label for="id_data_or_payload" class="form-label">data_or_payload</label>
+          {{ form.data_or_payload }}
+          {{ form.data_or_payload.errors }}
         </div>
         <div class="col-12">
           <label for="id_response_actions" class="form-label">Реагирование на инцидент</label>
@@ -82,11 +94,11 @@
           {{ form.response_actions.errors }}
         </div>
 
-<div class="col-12 text-center mt-3">
-  <button type="submit" name="action" value="save" class="btn btn-primary px-4 me-2">
-    Сохранить отчет
-  </button>
-</div>
+        <div class="col-12 text-center mt-3">
+          <button type="submit" name="action" value="save" class="btn btn-primary px-4 me-2">
+            Сохранить отчет
+          </button>
+        </div>
 
       </form>
 
@@ -137,15 +149,37 @@
 
   <script>
     // Карта описаний по типам атак
-    const descMap = {{ attacktype_descriptions|safe }};
+    const descMap = {{ attacktypes|safe }};
     // Элементы формы
     const selectAttack = document.getElementById('id_attack_type');
     const descField    = document.getElementById('id_short_description');
+    const methods = document.getElementById('id_methods');
+    const protocols_ports = document.getElementById('id_protocols_ports');
+    const detection_tool = document.getElementById('id_detection_tool');
+    const risk_assessment = document.getElementById('id_risk_assessment');
+    const potential_impact = document.getElementById('id_potential_impact');
+    const data_or_payload = document.getElementById('id_data_or_payload');
+    const response_actions = document.getElementById('id_response_actions');
 
     // При изменении типа атаки подставляем описание
     selectAttack.addEventListener('change', () => {
       const val = selectAttack.value;
-      descField.value = descMap[val] || '';
+      const oneAttackData = descMap[val]
+
+      if (oneAttackData['detection_tool'].trim() === 'WAF') {
+        document.getElementById('cve-block').style.display = 'none';
+        document.getElementById('host-block').style.display = 'block';
+      };
+
+      console.log(oneAttackData);
+      descField.value = oneAttackData['description'] || '';
+      methods.value = oneAttackData['methods'] || '';
+      protocols_ports.value = oneAttackData['protocols_ports'] || '';
+      detection_tool.value = oneAttackData['detection_tool'] || '';
+      risk_assessment.value = oneAttackData['risk_assessment'] || '';
+      potential_impact.value = oneAttackData['potential_impact'] || '';
+      data_or_payload.value = oneAttackData['data_or_payload'] || '';
+      response_actions.value = oneAttackData['response_actions'] || '';
     });
   </script>
 {% endblock %}

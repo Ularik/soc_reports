@@ -3,8 +3,6 @@ from datetime import datetime, timedelta, time
 from io import BytesIO
 from django.http import FileResponse
 from django.contrib import messages
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse
 from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse_lazy
@@ -20,27 +18,30 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib import colors
 from django.utils import timezone
 from .models import Report, AttackType, Organization
-from .forms import ReportForm
+from .forms import ReportsForm
+from django.forms.models import model_to_dict
 
 # Регистрация TTF-шрифта (путь укажите свой)
 pdfmetrics.registerFont(
     TTFont('TimesNewRoman', r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf')
 )
 
-@method_decorator(csrf_exempt, name='dispatch')
+
 class ReportCreateView(CreateView):
     model = Report
-    form_class = ReportForm
-    template_name = 'reports/report_form.html'
+    form_class = ReportsForm
+    template_name = 'reports/report_waf_form.html'
     success_url = reverse_lazy('reports:report_new')
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         # JSON для автозаполнения описания по типу атаки
-        ctx['attacktype_descriptions'] = json.dumps(
-            {at.pk: at.description for at in AttackType.objects.all()},
-            ensure_ascii=False
-        )
+        attack_types = {}
+        for obj in AttackType.objects.all():
+            data = model_to_dict(obj)
+            attack_types[obj.pk] = data
+
+        ctx['attacktypes'] = json.dumps(attack_types, ensure_ascii=False)
         return ctx
 
     def form_valid(self, form):
@@ -66,32 +67,40 @@ class ReportDownloadView(View):
             topMargin=60, bottomMargin=40
         )
         styles = getSampleStyleSheet()
-        styles['Title'].fontName  = 'TimesNewRoman'
+        styles['Title'].fontName = 'TimesNewRoman'
         styles['Normal'].fontName = 'TimesNewRoman'
         cell = ParagraphStyle('CellStyle', fontName='TimesNewRoman', fontSize=10, leading=12, wordWrap='LTR')
 
-        elems = [Paragraph("Отчет по выявлению аномалий", styles['Title']), Spacer(1,12)]
+        elems = [Paragraph("Отчет по выявлению аномалий средствами SOC", styles['Title']), Spacer(1, 12)]
         data = [
             [Paragraph("Поле", cell), Paragraph("Значение", cell)],
-            [Paragraph("Дата и время", cell), Paragraph(report.detection_date.strftime('%Y-%m-%d %H:%M'), cell)],
+            [Paragraph("Дата и время", cell), Paragraph(report.detection_date, cell)],
             [Paragraph("Тип угрозы", cell), Paragraph(report.attack_type.name, cell)],
             [Paragraph("Источник угрозы", cell), Paragraph(report.source_ip, cell)],
+
             [Paragraph("Адрес назначения", cell), Paragraph(report.destination_ip, cell)],
-            [Paragraph("Средство обнаружения", cell), Paragraph(report.detection_tool, cell)],
+            [Paragraph("Средство обнаружения", cell), Paragraph('WAF', cell)],
             [Paragraph("Краткое описание", cell), Paragraph(report.short_description, cell)],
             [Paragraph("Методы атаки", cell), Paragraph(report.methods, cell)],
             [Paragraph("Протоколы и порты", cell), Paragraph(report.protocols_ports, cell)],
             [Paragraph("Критичность", cell), Paragraph(report.risk_assessment, cell)],
             [Paragraph("Потенциальные последствия", cell), Paragraph(report.potential_impact, cell)],
-            [Paragraph("Payload", cell), Paragraph(report.payload, cell)],
-            [Paragraph("Реагирование", cell), Paragraph(report.response_actions.replace('\n','<br/>'), cell)],
+            [Paragraph(["Payload", "Data"][bool(report.host)], cell), Paragraph(report.data_or_payload, cell)],
+            [Paragraph("Реагирование на ицнидент", cell),
+             Paragraph(report.response_actions.replace('\n', '<br/>'), cell)],
         ]
+        if report.detection_tool == 'WAF':
+            print(report.host)
+            data.insert(4, [Paragraph("Host", cell), Paragraph(report.host, cell)])
+        elif report.detection_tool == 'IPS':
+            print(report.cve)
+            data.insert(4, [Paragraph("CVE", cell), Paragraph(report.cve, cell)])
 
-        table = Table(data, colWidths=[150,330])
+        table = Table(data, colWidths=[150, 330])
         table.setStyle(TableStyle([
-            ('BACKGROUND',(0,0),(-1,0),colors.HexColor('#f0f0f0')),
-            ('GRID',(0,0),(-1,-1),0.5,colors.black),
-            ('VALIGN',(0,0),(-1,-1),'TOP'),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f0f0f0')),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ]))
         elems.append(table)
         doc.build(elems)
@@ -100,32 +109,6 @@ class ReportDownloadView(View):
         name = f'report{pk}.pdf'
         resp = FileResponse(buffer, as_attachment=True, filename=name, content_type='application/pdf')
         return resp
-
-
-# class ReportCreateView(CreateView):
-#     model = Report
-#     form_class = ReportForm
-#     template_name = 'reports/report_form.html'
-#     success_url = reverse_lazy('reports:report_new')
-#
-#     def get_context_data(self, **kwargs):
-#         ctx = super().get_context_data(**kwargs)
-#         # JSON-словарь для автозаполнения описания по типу атаки
-#         ctx['attacktype_descriptions'] = json.dumps(
-#             {at.pk: at.description for at in AttackType.objects.all()},
-#             ensure_ascii=False
-#         )
-#         return ctx
-#
-#     def form_valid(self, form):
-#         # 1) Сохраняем новый отчет
-#         self.object = form.save()
-#
-#         # 2) Добавляем flash-сообщение
-#         messages.success(self.request, 'Отчет отправлен')
-#
-#         # 3) Редиректим на форму с параметром ?download=<pk>
-#         return redirect(f"{self.success_url}?download={self.object.pk}")
 
 
 class AnalyticsView(TemplateView):
@@ -205,14 +188,14 @@ class ReportListView(ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs    = super().get_queryset().order_by('-detection_date')
+        qs = super().get_queryset().order_by('-detection_date')
         start = self.request.GET.get('start')
-        end   = self.request.GET.get('end')
+        end = self.request.GET.get('end')
         if start and end:
             try:
                 # Парсим даты
                 sd_date = datetime.strptime(start, "%Y-%m-%d").date()
-                ed_date = datetime.strptime(end,   "%Y-%m-%d").date()
+                ed_date = datetime.strptime(end, "%Y-%m-%d").date()
                 # Границы суток
                 sd = datetime.combine(sd_date, time.min)
                 ed = datetime.combine(ed_date, time.max)
@@ -227,7 +210,7 @@ class ReportListView(ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['start'] = self.request.GET.get('start', '')
-        ctx['end']   = self.request.GET.get('end', '')
+        ctx['end'] = self.request.GET.get('end', '')
         return ctx
 
 
@@ -239,14 +222,14 @@ class ReportDetailView(DetailView):
 
 def export_monthly_reports(request):
     org_id = request.GET.get('org')
-    start  = request.GET.get('start')
-    end    = request.GET.get('end')
+    start = request.GET.get('start')
+    end = request.GET.get('end')
 
     rows = []
     if org_id and start and end:
         try:
             sd = datetime.strptime(start, "%Y-%m-%d")
-            ed = datetime.strptime(end,   "%Y-%m-%d") + timedelta(days=1)
+            ed = datetime.strptime(end, "%Y-%m-%d") + timedelta(days=1)
         except ValueError:
             sd = ed = None
 
@@ -254,7 +237,7 @@ def export_monthly_reports(request):
             qs = Report.objects.filter(
                 organization_id=org_id,
                 detection_date__gte=sd,
-                detection_date__lt =ed
+                detection_date__lt=ed
             )
         else:
             qs = Report.objects.filter(organization_id=org_id)
@@ -262,7 +245,7 @@ def export_monthly_reports(request):
         # Сбор данных по каждому source_ip…
         for src in qs.values_list('source_ip', flat=True).distinct():
             group = qs.filter(source_ip=src)
-            cnt   = group.count()
+            cnt = group.count()
             rec = None
             for level, _ in Report.RISK_LEVELS:
                 rec = group.filter(risk_assessment=level).order_by('detection_date').first()
@@ -271,9 +254,9 @@ def export_monthly_reports(request):
             rec = rec or group.order_by('detection_date').first()
             rows.append({
                 'destination': ', '.join(group.values_list('destination_ip', flat=True).distinct()),
-                'source':      src,
-                'warning':     rec.attack_type.name,
-                'priority':    rec.risk_assessment,
+                'source': src,
+                'warning': rec.attack_type.name,
+                'priority': rec.risk_assessment,
             })
 
     # Генерация .docx…
@@ -304,27 +287,26 @@ def export_monthly_reports(request):
     return response
 
 
-
 class MonthlyReportView(TemplateView):
     template_name = 'reports/monthly_reports.html'
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['organizations'] = Organization.objects.order_by('name')
-        ctx['risk_levels']   = Report.RISK_LEVELS
+        ctx['risk_levels'] = Report.RISK_LEVELS
 
         org_id = self.request.GET.get('org')
-        start  = self.request.GET.get('start')
-        end    = self.request.GET.get('end')
-        ctx['selected_org']   = int(org_id) if org_id else None
+        start = self.request.GET.get('start')
+        end = self.request.GET.get('end')
+        ctx['selected_org'] = int(org_id) if org_id else None
         ctx['selected_start'] = start
-        ctx['selected_end']   = end
+        ctx['selected_end'] = end
 
         rows = []
         if org_id and start and end:
             try:
                 sd_date = datetime.strptime(start, "%Y-%m-%d").date()
-                ed_date = datetime.strptime(end,   "%Y-%m-%d").date()
+                ed_date = datetime.strptime(end, "%Y-%m-%d").date()
             except ValueError:
                 ctx['reports'] = rows
                 return ctx
@@ -340,25 +322,25 @@ class MonthlyReportView(TemplateView):
 
             for src in qs.values_list('source_ip', flat=True).distinct():
                 group = qs.filter(source_ip=src)
-                cnt   = group.count()
+                cnt = group.count()
 
                 # Выбор записи по приоритету
                 rec = None
                 for level, _ in Report.RISK_LEVELS:
                     rec = group.filter(risk_assessment=level) \
-                               .order_by('detection_date') \
-                               .first()
+                        .order_by('detection_date') \
+                        .first()
                     if rec:
                         break
                 rec = rec or group.order_by('detection_date').first()
 
                 rows.append({
-                    'rec':             rec,
+                    'rec': rec,
                     'destination_ips': list(group.values_list('destination_ip', flat=True).distinct()),
-                    'source_ip':       src,
-                    'warning':         rec.attack_type.name,
-                    'priority':        rec.risk_assessment,
-                    'requests':        cnt,
+                    'source_ip': src,
+                    'warning': rec.attack_type.name,
+                    'priority': rec.risk_assessment,
+                    'requests': cnt,
                 })
 
         ctx['reports'] = rows
@@ -379,4 +361,3 @@ class MonthlyReportView(TemplateView):
         start = request.POST.get('start', '')
         end = request.POST.get('end', '')
         return redirect(f"{request.path}?org={org}&start={start}&end={end}")
-
