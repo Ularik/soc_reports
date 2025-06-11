@@ -148,38 +148,49 @@
   </script>
 
   <script>
-    // Карта описаний по типам атак
-    const descMap = {{ attacktypes|safe }};
-    // Элементы формы
-    const selectAttack = document.getElementById('id_attack_type');
-    const descField    = document.getElementById('id_short_description');
-    const methods = document.getElementById('id_methods');
-    const protocols_ports = document.getElementById('id_protocols_ports');
-    const detection_tool = document.getElementById('id_detection_tool');
-    const risk_assessment = document.getElementById('id_risk_assessment');
-    const potential_impact = document.getElementById('id_potential_impact');
-    const data_or_payload = document.getElementById('id_data_or_payload');
-    const response_actions = document.getElementById('id_response_actions');
+    $(document).ready(function() {
+      const selectAttack = document.getElementById('id_attack_type');
 
-    // При изменении типа атаки подставляем описание
-    selectAttack.addEventListener('change', () => {
-      const val = selectAttack.value;
-      const oneAttackData = descMap[val]
+      $('#id_attack_type').select2({
+        placeholder: 'Выберите тип угрозы',
+        allowClear: true
+      });
 
-      if (oneAttackData['detection_tool'].trim() === 'WAF') {
-        document.getElementById('cve-block').style.display = 'none';
-        document.getElementById('host-block').style.display = 'block';
-      };
+      // Карта описаний по типам атак
+      const descMap = {{ attacktypes|safe }};
+      // Элементы формы
+      const descField = document.getElementById('id_short_description');
+      const methods = document.getElementById('id_methods');
+      const protocols_ports = document.getElementById('id_protocols_ports');
+      const detection_tool = document.getElementById('id_detection_tool');
+      const risk_assessment = document.getElementById('id_risk_assessment');
+      const potential_impact = document.getElementById('id_potential_impact');
+      const data_or_payload = document.getElementById('id_data_or_payload');
+      const response_actions = document.getElementById('id_response_actions');
 
-      console.log(oneAttackData);
-      descField.value = oneAttackData['description'] || '';
-      methods.value = oneAttackData['methods'] || '';
-      protocols_ports.value = oneAttackData['protocols_ports'] || '';
-      detection_tool.value = oneAttackData['detection_tool'] || '';
-      risk_assessment.value = oneAttackData['risk_assessment'] || '';
-      potential_impact.value = oneAttackData['potential_impact'] || '';
-      data_or_payload.value = oneAttackData['data_or_payload'] || '';
-      response_actions.value = oneAttackData['response_actions'] || '';
+      // При изменении типа атаки подставляем описание
+      $('#id_attack_type').on('change', function () {
+        console.log('change selectAttack via jQuery');
+
+        const val = selectAttack.value;
+        const oneAttackData = descMap[val]
+
+        if (oneAttackData['detection_tool'].trim() === 'WAF') {
+          document.getElementById('cve-block').style.display = 'none';
+          document.getElementById('host-block').style.display = 'block';
+        };
+
+        console.log(oneAttackData);
+        descField.value = oneAttackData['description'] || '';
+        methods.value = oneAttackData['methods'] || '';
+        protocols_ports.value = oneAttackData['protocols_ports'] || '';
+        detection_tool.value = oneAttackData['detection_tool'] || '';
+        risk_assessment.value = oneAttackData['risk_assessment'] || '';
+        potential_impact.value = oneAttackData['potential_impact'] || '';
+        data_or_payload.value = oneAttackData['data_or_payload'] || '';
+        response_actions.value = oneAttackData['response_actions'] || '';
+      });
+
     });
   </script>
 {% endblock %}

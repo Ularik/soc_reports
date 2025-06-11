@@ -56,7 +56,7 @@ class AttackType(models.Model):
 
 
 class Report(models.Model):
-    detection_date = models.CharField("Дата и время выявления угрозы")
+    detection_date = models.DateTimeField("Дата и время выявления угрозы")
     organization = models.ForeignKey(
         Organization,
         verbose_name="Организация",

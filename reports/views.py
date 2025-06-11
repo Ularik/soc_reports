@@ -1,4 +1,5 @@
 import json
+from django.shortcuts import render
 from datetime import datetime, timedelta, time
 from io import BytesIO
 from django.http import FileResponse
@@ -23,9 +24,9 @@ from django.forms.models import model_to_dict
 
 # Регистрация TTF-шрифта (путь укажите свой)
 pdfmetrics.registerFont(
-    TTFont('TimesNewRoman', r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf')
+    TTFont('TimesNewRoman', r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf') # C:\Windows\Fonts\times.ttf
 )
-
+# /usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf
 
 class ReportCreateView(CreateView):
     model = Report
@@ -60,7 +61,7 @@ class ReportDownloadView(View):
         report = get_object_or_404(Report, pk=pk)
 
         buffer = BytesIO()
-        pdfmetrics.registerFont(TTFont('TimesNewRoman', r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf'))
+        pdfmetrics.registerFont(TTFont('TimesNewRoman', r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf')) # C:\Windows\Fonts\times.ttf
         doc = SimpleDocTemplate(
             buffer, pagesize=A4,
             rightMargin=40, leftMargin=40,
@@ -74,7 +75,7 @@ class ReportDownloadView(View):
         elems = [Paragraph("Отчет по выявлению аномалий средствами SOC", styles['Title']), Spacer(1, 12)]
         data = [
             [Paragraph("Поле", cell), Paragraph("Значение", cell)],
-            [Paragraph("Дата и время", cell), Paragraph(report.detection_date, cell)],
+            [Paragraph("Дата и время", cell), Paragraph(report.detection_date.strftime('%Y-%m-%d'), cell)],
             [Paragraph("Тип угрозы", cell), Paragraph(report.attack_type.name, cell)],
             [Paragraph("Источник угрозы", cell), Paragraph(report.source_ip, cell)],
 
