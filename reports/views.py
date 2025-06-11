@@ -18,7 +18,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib import colors
 from django.utils import timezone
-from .models import Report, AttackType, Organization
+from .models import Report, AttackType, Organization, RISK_LEVELS
 from .forms import ReportsForm
 from django.forms.models import model_to_dict
 
@@ -122,7 +122,9 @@ class AnalyticsView(TemplateView):
 
         # Если даты не заданы, берём весь диапазон из БД
         if not (start and end):
-            agg = Report.objects.aggregate(
+            agg1 = (Report.objects.filter(detection_date__isnull=False))
+            print(agg1)
+            agg = agg1.aggregate(
                 min_date=Min('detection_date'),
                 max_date=Max('detection_date')
             )
@@ -248,7 +250,7 @@ def export_monthly_reports(request):
             group = qs.filter(source_ip=src)
             cnt = group.count()
             rec = None
-            for level, _ in Report.RISK_LEVELS:
+            for level, _ in RISK_LEVELS:
                 rec = group.filter(risk_assessment=level).order_by('detection_date').first()
                 if rec:
                     break
@@ -294,7 +296,7 @@ class MonthlyReportView(TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['organizations'] = Organization.objects.order_by('name')
-        ctx['risk_levels'] = Report.RISK_LEVELS
+        ctx['risk_levels'] = RISK_LEVELS
 
         org_id = self.request.GET.get('org')
         start = self.request.GET.get('start')
@@ -327,7 +329,7 @@ class MonthlyReportView(TemplateView):
 
                 # Выбор записи по приоритету
                 rec = None
-                for level, _ in Report.RISK_LEVELS:
+                for level, _ in RISK_LEVELS:
                     rec = group.filter(risk_assessment=level) \
                         .order_by('detection_date') \
                         .first()
