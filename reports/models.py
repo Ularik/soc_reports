@@ -1,5 +1,8 @@
 from django.db import models
-from datetime import datetime, timedelta
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
 
 RISK_LEVELS = [
     ('Критическая', 'Критическая'),
@@ -17,14 +20,15 @@ DETECTION_TOOLS = [
 ]
 
 class Organization(models.Model):
-    name = models.CharField("Наименование организации", max_length=100, unique=True)
+    name_en = models.CharField("Наименование организации анг", max_length=100, unique=True)
+    name_ru = models.CharField("Наименование организации", max_length=100, unique=True)
 
     class Meta:
         verbose_name = "Организация"
         verbose_name_plural = "Организации"
 
     def __str__(self):
-        return self.name
+        return self.name_ru
 
 
 class AttackType(models.Model):
@@ -44,7 +48,7 @@ class AttackType(models.Model):
         default='Низкая'
     )
     potential_impact = models.TextField("Потенциальные последствия", blank=True)
-    data = models.TextField(blank=True, null=True)
+    data_or_payload = models.TextField(blank=True, null=True)
     response_actions = models.TextField("Реагирование на инцидент", blank=True)
 
     class Meta:
@@ -56,6 +60,7 @@ class AttackType(models.Model):
 
 
 class Report(models.Model):
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, verbose_name='Пользователь', null=True, blank=True)
     detection_date = models.DateTimeField("Дата и время выявления угрозы")
     organization = models.ForeignKey(
         Organization,

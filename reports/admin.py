@@ -24,8 +24,8 @@ class AttackTypeForm(forms.ModelForm):
 @admin.register(AttackType)
 class AttackTypeAdmin(admin.ModelAdmin):
     form = AttackTypeForm
-    list_display = ('name',)
-    search_fields = ('name',)
+    list_display = ('id', 'name',)
+    search_fields = ('id', 'name',)
 
 
 @admin.register(Report)
@@ -52,5 +52,5 @@ class ReportAdmin(admin.ModelAdmin):
 
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
-    list_display = ('name',)
-    search_fields = ('name',)
+    list_display = ('id', 'name_en', 'name_ru')
+    search_fields = ('id', 'name_en', 'name_ru')

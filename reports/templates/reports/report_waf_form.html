@@ -13,6 +13,10 @@
         {% csrf_token %}
         <!-- Общие сведения -->
         <div class="col-md-6">
+          <label for="id_user" class="form-label">Пользователь</label>
+          <input type="text" value="{% if request.user.is_authenticated %}{{ request.user }}{% endif %}">
+        </div>
+        <div class="col-md-6">
           <label for="id_detection_date" class="form-label">Дата и время выявления угрозы</label>
           {{ form.detection_date }}
           {{ form.detection_date.errors }}
@@ -174,10 +178,14 @@
 
         const val = selectAttack.value;
         const oneAttackData = descMap[val]
+        console.log(oneAttackData);
 
         if (oneAttackData['detection_tool'].trim() === 'WAF') {
           document.getElementById('cve-block').style.display = 'none';
           document.getElementById('host-block').style.display = 'block';
+        } else if (oneAttackData['detection_tool'].trim() === 'IPS') {
+          document.getElementById('cve-block').style.display = 'block';
+          document.getElementById('host-block').style.display = 'none';
         };
 
         console.log(oneAttackData);

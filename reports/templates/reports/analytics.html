@@ -1,25 +1,85 @@
 {% extends "base.html" %}
 {% block title %}Аналитика по типам атак{% endblock %}
 
-{% block content %}
-  <h1>Аналитика по типам атак (в %)</h1>
-  <form method="get" class="mb-4">
-    <label>С:</label>
-    <input type="date" name="start" value="{{ start }}">
-    <label>По:</label>
-    <input type="date" name="end"   value="{{ end }}">
-    <button type="submit" class="btn btn-primary">Показать</button>
-  </form>
+{% load static %}
 
-  {% if labels %}
-    <div style="width:30%;">
-      <canvas id="attackChart"></canvas>
+{% block content %}
+  <div class="analitick-block">
+    <div class="analitickOne">
+      <h1>Аналитика по типам атак (в %)</h1>
+      <form method="get" class="mb-4">
+        <label>С:</label>
+        <input type="date" name="start" value="{{ start }}">
+        <label>По:</label>
+        <input type="date" name="end"   value="{{ end }}">
+        <button type="submit" class="btn btn-primary">Показать</button>
+      </form>
+
+      {% if labels %}
+        <div style="width:30%;">
+          <canvas id="attackChart"></canvas>
+        </div>
+        <!-- Легенда по цветам -->
+        <ul id="legend" class="list-unstyled mt-3"></ul>
+      {% else %}
+        <p>Нет данных за выбранный период.</p>
+      {% endif %}
     </div>
-    <!-- Легенда по цветам -->
-    <ul id="legend" class="list-unstyled mt-3"></ul>
-  {% else %}
-    <p>Нет данных за выбранный период.</p>
-  {% endif %}
+
+    <div class="analitickTwo">
+      <h1>Статистический отчет по работе</h1>
+      <form id="static-report-form" action="{% url 'reports:static_report' %}" method="get" class="mb-4">
+        <label>С:</label>
+        <input type="date" name="start" value="{{ start }}">
+        <label>По:</label>
+        <input type="date" name="end"   value="{{ end }}">
+        <button type="submit" class="btn btn-primary">Показать</button>
+      </form>
+
+      <table class="table report-table">
+        <thead>
+          <tr>
+            <th rowspan="3">№</th>
+            <th rowspan="3">ФИО</th>
+            <th class="lower-width" colspan="1" rowspan="3">Проанализированные правила</th>
+            <th colspan="12">SOC</th>
+            <th colspan="2">IRP</th>
+            <th colspan="1">DZ</th>
+            <th colspan="1">Рапорты</th>
+          </tr>
+          <tr>
+            <th colspan="2">МФ</th>
+            <th colspan="2">ГТС</th>
+            <th colspan="2">ГНС</th>
+            <th colspan="2">ГП "Инфоком"</th>
+            <th colspan="2">МИД</th>
+            <th colspan="2">УДП КР</th>
+            <th colspan="1">Лож</th>
+            <th colspan="2">СФ</th>
+            <th class="foms" colspan="2">ФОM</th>
+          </tr>
+          <tr>
+            <th class="italic-red">Н</th><th class="italic-red">М</th>
+            <th class="italic-red">Н</th><th class="italic-red">М</th>
+            <th class="italic-red">Н</th><th class="italic-red">М</th>
+            <th class="italic-red">Н</th><th class="italic-red">М</th>
+            <th class="italic-red">Н</th><th class="italic-red">М</th>
+            <th class="italic-red">Н</th><th class="italic-red">М</th>
+            <th class="italic-red">0</th>
+            <th class="italic-red">Н</th><th class="italic-red">М</th>
+            <th class="italic-red">Н</th><th class="italic-red">М</th>
+          </tr>
+        </thead>
+
+        <tbody id="reportBody">
+          <!-- Заполняется динамически -->
+        </tbody>
+
+      </table>
+    </div>
+
+  </div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -72,4 +132,5 @@
       });
     </script>
   {% endif %}
+  <script src="{% static 'js/statick-report-table.js' %}"></script>
 {% endblock %}

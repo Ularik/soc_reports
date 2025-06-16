@@ -2,7 +2,8 @@ import json
 from django.shortcuts import render
 from datetime import datetime, timedelta, time
 from io import BytesIO
-from django.http import FileResponse
+from django.db.models import Q
+from django.http import FileResponse, JsonResponse
 from django.contrib import messages
 from django.http import HttpResponse
 from django.shortcuts import redirect, get_object_or_404
@@ -17,10 +18,15 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib import colors
-from django.utils import timezone
+from .utils import create_stat_report
 from .models import Report, AttackType, Organization, RISK_LEVELS
 from .forms import ReportsForm
 from django.forms.models import model_to_dict
+import base64
+from django.contrib.auth import get_user_model
+
+
+User = get_user_model()
 
 # Регистрация TTF-шрифта (путь укажите свой)
 pdfmetrics.registerFont(
@@ -28,32 +34,38 @@ pdfmetrics.registerFont(
 )
 # /usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf
 
-class ReportCreateView(CreateView):
-    model = Report
-    form_class = ReportsForm
+def report_create_view(request):
     template_name = 'reports/report_waf_form.html'
-    success_url = reverse_lazy('reports:report_new')
 
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        # JSON для автозаполнения описания по типу атаки
-        attack_types = {}
-        for obj in AttackType.objects.all():
-            data = model_to_dict(obj)
-            attack_types[obj.pk] = data
+    if request.method == 'POST':
+        form = ReportsForm(request.POST)
+        success_url = reverse_lazy('reports:report_new')
 
-        ctx['attacktypes'] = json.dumps(attack_types, ensure_ascii=False)
-        return ctx
+        if form.is_valid():
+            # Получаем объект формы, но не сохраняем его сразу в БД
+            report = form.save(commit=False)
+            report.user = request.user
+            # Сохраняем объект в БД
+            report.save()
 
-    def form_valid(self, form):
-        # 1) Сохраняем отчёт
-        self.object = form.save()
+            # 2) Добавляем уведомление
+            messages.success(request, 'Отчет отправлен')
 
-        # 2) Добавляем уведомление
-        messages.success(self.request, 'Отчет отправлен')
+            # 3) Редиректим на чистую форму с параметром download=<pk>
+            return redirect(f"{success_url}?download={report.pk}")
 
-        # 3) Редиректим на чистую форму с параметром download=<pk>
-        return redirect(f"{self.success_url}?download={self.object.pk}")
+        messages.success(request, 'Отчет некорректен')
+
+    form = ReportsForm()
+    # JSON для автозаполнения описания по типу атаки
+    attack_types = {}
+    for obj in AttackType.objects.all():
+        data = model_to_dict(obj)
+        attack_types[obj.pk] = data
+    return render(request, template_name, context={
+        'attacktypes': json.dumps(attack_types, ensure_ascii=False),
+        'form': form
+        })
 
 
 class ReportDownloadView(View):
@@ -91,10 +103,8 @@ class ReportDownloadView(View):
              Paragraph(report.response_actions.replace('\n', '<br/>'), cell)],
         ]
         if report.detection_tool == 'WAF':
-            print(report.host)
             data.insert(4, [Paragraph("Host", cell), Paragraph(report.host, cell)])
         elif report.detection_tool == 'IPS':
-            print(report.cve)
             data.insert(4, [Paragraph("CVE", cell), Paragraph(report.cve, cell)])
 
         table = Table(data, colWidths=[150, 330])
@@ -112,6 +122,73 @@ class ReportDownloadView(View):
         return resp
 
 
+def get_reports(request):
+
+    reports = Report.objects.values('user__username', 'organization__name_en', 'risk_assessment').annotate(count=Count('id'))
+
+    context = {}
+    if request.GET:
+        start = request.GET.get('start')
+        end = request.GET.get('end')
+
+        if not (start and end):
+            agg = Report.objects.filter(detection_date__isnull=False).aggregate(
+                    min_date=Min('detection_date'),
+                    max_date=Max('detection_date')
+                )
+            if not agg['min_date']:
+                return JsonResponse({})
+
+            start = agg['min_date'].date().isoformat()
+            end = agg['max_date'].date().isoformat()
+
+        try:
+            sd_date = datetime.strptime(start, "%Y-%m-%d").date()
+            ed_date = datetime.strptime(end, "%Y-%m-%d").date()
+        except ValueError:
+            context.update({'labels': [], 'data': [], 'start': start, 'end': end})
+            return JsonResponse({})
+
+        # Границы периода: с полуночи start до конца дня end
+        sd = datetime.combine(sd_date, time.min)
+        ed = datetime.combine(ed_date, time.max)
+
+        reports = reports.filter(Q(detection_date__isnull=False) |
+                                 Q(detection_date__lte=ed) |
+                                 Q(detection_date__gte=sd))
+        reports_dicts = {}
+        users = User.objects.all()
+
+        for report in reports:
+            reports_dicts[report['user__username']] = reports_dicts.get(report['user__username'], {})
+            reports_dicts[report['user__username']][report['organization__name_en']] = reports_dicts[report['user__username']].get(report['organization__name_en'], {})
+            reports_dicts[report['user__username']][report['organization__name_en']][report['risk_assessment']] = reports_dicts[report['user__username']][report['organization__name_en']].get(report['risk_assessment'], {})
+            reports_dicts[report['user__username']][report['organization__name_en']][report['risk_assessment']] = report['count']
+
+
+        output = create_stat_report(reports_dicts)
+        # Кодируем файл в base64
+        excel_file_base64 = base64.b64encode(output.getvalue()).decode('utf-8')
+
+        # Формируем JSON-ответ
+        response_data = {
+            "reports": reports_dicts,
+            "file": {
+                "filename": "report_kcokb.xlsx",
+                "content": excel_file_base64,
+                "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            }
+        }
+
+        return JsonResponse(response_data)
+
+
+def create_static_reports(request, ):
+    reports = Report.objects.all()
+
+    return
+
+
 class AnalyticsView(TemplateView):
     template_name = 'reports/analytics.html'
 
@@ -122,12 +199,16 @@ class AnalyticsView(TemplateView):
 
         # Если даты не заданы, берём весь диапазон из БД
         if not (start and end):
-            agg1 = (Report.objects.filter(detection_date__isnull=False))
-            print(agg1)
-            agg = agg1.aggregate(
+            agg = (Report.objects.filter(detection_date__isnull=False))
+            if not agg:
+                return ctx
+
+            agg = agg.aggregate(
                 min_date=Min('detection_date'),
                 max_date=Max('detection_date')
             )
+
+            print(agg)
             start = agg['min_date'].date().isoformat()
             end = agg['max_date'].date().isoformat()
 

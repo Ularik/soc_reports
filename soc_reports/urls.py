@@ -5,8 +5,8 @@ from django.views.csrf import csrf_failure
 
 handler403 = csrf_failure
 
-
 urlpatterns = [
     path('', include('reports.urls', namespace='reports')),
+    path('user/', include('user.urls')),
     path('admin/',   admin.site.urls),
 ]
