@@ -1,13 +1,16 @@
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, Alignment
 from openpyxl.utils import get_column_letter
+from django.contrib.auth import get_user_model
 from io import BytesIO
+
+User = get_user_model()
 
 def create_stat_report(data):
     workbook = load_workbook('reports/stat_rep_template/pattern.xlsx')
     ws = workbook['Лист1']  # Указываем имя листа
 
-    organs = {
+    organs = {   # координаты столбцов органов в excell
         'MF': {
             'h': 'D',
             'm': 'E'
@@ -33,12 +36,13 @@ def create_stat_report(data):
     }
 
     start_row = 6
+
     for i, usr in enumerate(users, 1):
         row = start_row + i
         ws['A' + str(row)] = i   # заполняем число нумерацию
         ws['B' + str(row)] = users[usr]   # заполняем имя пользователя
 
-        if usr not in data:
+        if usr not in data:   # если такой пользователь отсутствует в базе, то просто добавляем в таблицу без днных
             continue
 
         organizations_dct = data[usr]
