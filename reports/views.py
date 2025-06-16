@@ -19,7 +19,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib import colors
 from .utils import create_stat_report
-from .models import Report, AttackType, Organization, RISK_LEVELS
+from .models import Report, Pattern, Organization, RISK_LEVELS
 from .forms import ReportsForm
 from django.forms.models import model_to_dict
 import base64
@@ -30,7 +30,7 @@ User = get_user_model()
 
 # Регистрация TTF-шрифта (путь укажите свой)
 pdfmetrics.registerFont(
-    TTFont('TimesNewRoman', r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf') # C:\Windows\Fonts\times.ttf
+    TTFont('TimesNewRoman', r'C:\Windows\Fonts\times.ttf') # C:\Windows\Fonts\times.ttf
 )
 # /usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf
 
@@ -59,11 +59,11 @@ def report_create_view(request):
     form = ReportsForm()
     # JSON для автозаполнения описания по типу атаки
     attack_types = {}
-    for obj in AttackType.objects.all():
+    for obj in Pattern.objects.all():
         data = model_to_dict(obj)
         attack_types[obj.pk] = data
     return render(request, template_name, context={
-        'attacktypes': json.dumps(attack_types, ensure_ascii=False),
+        'pattern': json.dumps(attack_types, ensure_ascii=False),
         'form': form
         })
 
@@ -73,7 +73,7 @@ class ReportDownloadView(View):
         report = get_object_or_404(Report, pk=pk)
 
         buffer = BytesIO()
-        pdfmetrics.registerFont(TTFont('TimesNewRoman', r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf')) # C:\Windows\Fonts\times.ttf
+        pdfmetrics.registerFont(TTFont('TimesNewRoman', r'C:\Windows\Fonts\times.ttf')) # C:\Windows\Fonts\times.ttf
         doc = SimpleDocTemplate(
             buffer, pagesize=A4,
             rightMargin=40, leftMargin=40,
@@ -88,7 +88,7 @@ class ReportDownloadView(View):
         data = [
             [Paragraph("Поле", cell), Paragraph("Значение", cell)],
             [Paragraph("Дата и время", cell), Paragraph(report.detection_date.strftime('%Y-%m-%d'), cell)],
-            [Paragraph("Тип угрозы", cell), Paragraph(report.attack_type.name, cell)],
+            [Paragraph("Тип угрозы", cell), Paragraph(report.attack_type, cell)],
             [Paragraph("Источник угрозы", cell), Paragraph(report.source_ip, cell)],
 
             [Paragraph("Адрес назначения", cell), Paragraph(report.destination_ip, cell)],
@@ -234,7 +234,7 @@ class AnalyticsView(TemplateView):
         qs = (
             Report.objects
             .filter(detection_date__gte=sd, detection_date__lte=ed)
-            .values('attack_type__name')
+            .values('attack_type')
             .annotate(count=Count('id'))
             .order_by('-count')
         )
@@ -247,7 +247,7 @@ class AnalyticsView(TemplateView):
 
         for idx, item in enumerate(qs):
             if idx < MAX_SLICES:
-                labels.append(item['attack_type__name'])
+                labels.append(item['attack_type'])
                 data.append(round(item['count'] / total * 100, 2))
             else:
                 other_count += item['count']

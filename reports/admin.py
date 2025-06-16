@@ -1,29 +1,29 @@
 from django.contrib import admin
-from .models import AttackType, Report, Organization
+from .models import Pattern, Report, Organization
 from django import forms
 
 
 
-class AttackTypeForm(forms.ModelForm):
+class PatternForm(forms.ModelForm):
     class Meta:
-        model = AttackType
+        model = Pattern
         fields = '__all__'
 
     def clean_name(self):
         name = self.cleaned_data['name'].strip()
-        qs = AttackType.objects.filter(name__iexact=name)
+        qs = Pattern.objects.filter(name__iexact=name)
         if self.instance.pk:
             qs = qs.exclude(pk=self.instance.pk)
         if qs.exists():
             raise forms.ValidationError(
-                "Тип атаки с таким названием уже существует."
+                "Шаблон с таким названием уже существует."
             )
         return name
 
 
-@admin.register(AttackType)
-class AttackTypeAdmin(admin.ModelAdmin):
-    form = AttackTypeForm
+@admin.register(Pattern)
+class PatternAdmin(admin.ModelAdmin):
+    form = PatternForm
     list_display = ('id', 'name',)
     search_fields = ('id', 'name',)
 
@@ -32,12 +32,14 @@ class AttackTypeAdmin(admin.ModelAdmin):
 class ReportAdmin(admin.ModelAdmin):
     list_display = (
         'detection_date',
+        'pattern',
         'attack_type',
         'source_ip',
         'destination_ip',
         'detection_tool',
     )
     list_filter = (
+        'pattern',
         'attack_type',
         'detection_tool',
         'detection_date',
@@ -45,7 +47,7 @@ class ReportAdmin(admin.ModelAdmin):
     search_fields = (
         'source_ip',
         'destination_ip',
-        'attack_type__name',
+        'pattern__name',
     )
 
 

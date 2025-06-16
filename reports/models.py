@@ -31,8 +31,9 @@ class Organization(models.Model):
         return self.name_ru
 
 
-class AttackType(models.Model):
-    name = models.CharField("Название атаки", max_length=100, unique=True)
+class Pattern(models.Model):
+    name = models.CharField("Название шаблона", max_length=100)
+    attack_type = models.CharField("Название атаки", max_length=100)
     description = models.TextField("Описание атаки", blank=True)
     methods = models.CharField(max_length=200, verbose_name='Методы атаки')
     detection_tool = models.CharField(
@@ -52,8 +53,8 @@ class AttackType(models.Model):
     response_actions = models.TextField("Реагирование на инцидент", blank=True)
 
     class Meta:
-        verbose_name = "Тип атаки"
-        verbose_name_plural = "Типы атак"
+        verbose_name = "Шаблон"
+        verbose_name_plural = "Шаблоны"
 
     def __str__(self):
         return self.name
@@ -67,11 +68,12 @@ class Report(models.Model):
         verbose_name="Организация",
         on_delete=models.PROTECT,
     )
-    attack_type = models.ForeignKey(
-        AttackType,
-        verbose_name="Тип угрозы",
+    pattern = models.ForeignKey(
+        Pattern,
+        verbose_name="Шаблон",
         on_delete=models.PROTECT,
     )
+    attack_type = models.CharField("Название атаки", max_length=100, null=True, blank=True)
     source_ip = models.GenericIPAddressField("Источник угрозы")
     destination_ip = models.GenericIPAddressField("Адрес назначения")
     detection_tool = models.CharField("Средство обнаружения", max_length=10, choices=DETECTION_TOOLS)

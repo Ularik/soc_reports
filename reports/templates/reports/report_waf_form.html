@@ -27,6 +27,11 @@
           {{ form.organization.errors }}
         </div>
         <div class="col-md-6">
+          <label for="id_pattern" class="form-label">Шаблон</label>
+          {{ form.pattern }}
+          {{ form.pattern.errors }}
+        </div>
+        <div class="col-md-6">
           <label for="id_attack_type" class="form-label">Тип угрозы</label>
           {{ form.attack_type }}
           {{ form.attack_type.errors }}
@@ -153,17 +158,18 @@
 
   <script>
     $(document).ready(function() {
-      const selectAttack = document.getElementById('id_attack_type');
+      const selectAttack = document.getElementById('id_pattern');
 
-      $('#id_attack_type').select2({
-        placeholder: 'Выберите тип угрозы',
+      $('#id_pattern').select2({
+        placeholder: 'Выберите шаблон',
         allowClear: true
       });
 
       // Карта описаний по типам атак
-      const descMap = {{ attacktypes|safe }};
+      const descMap = {{ pattern|safe }};
       // Элементы формы
       const descField = document.getElementById('id_short_description');
+      const attackType = document.getElementById('id_attack_type');
       const methods = document.getElementById('id_methods');
       const protocols_ports = document.getElementById('id_protocols_ports');
       const detection_tool = document.getElementById('id_detection_tool');
@@ -173,30 +179,30 @@
       const response_actions = document.getElementById('id_response_actions');
 
       // При изменении типа атаки подставляем описание
-      $('#id_attack_type').on('change', function () {
+      $('#id_pattern').on('change', function () {
         console.log('change selectAttack via jQuery');
 
         const val = selectAttack.value;
-        const oneAttackData = descMap[val]
-        console.log(oneAttackData);
+        const onePatternData = descMap[val]
+        console.log(onePatternData);
 
-        if (oneAttackData['detection_tool'].trim() === 'WAF') {
+        if (onePatternData['detection_tool'].trim() === 'WAF') {
           document.getElementById('cve-block').style.display = 'none';
           document.getElementById('host-block').style.display = 'block';
-        } else if (oneAttackData['detection_tool'].trim() === 'IPS') {
+        } else if (onePatternData['detection_tool'].trim() === 'IPS') {
           document.getElementById('cve-block').style.display = 'block';
           document.getElementById('host-block').style.display = 'none';
         };
 
-        console.log(oneAttackData);
-        descField.value = oneAttackData['description'] || '';
-        methods.value = oneAttackData['methods'] || '';
-        protocols_ports.value = oneAttackData['protocols_ports'] || '';
-        detection_tool.value = oneAttackData['detection_tool'] || '';
-        risk_assessment.value = oneAttackData['risk_assessment'] || '';
-        potential_impact.value = oneAttackData['potential_impact'] || '';
-        data_or_payload.value = oneAttackData['data_or_payload'] || '';
-        response_actions.value = oneAttackData['response_actions'] || '';
+        descField.value = onePatternData['description'] || '';
+        attackType.value = onePatternData['attack_type'] || '';
+        methods.value = onePatternData['methods'] || '';
+        protocols_ports.value = onePatternData['protocols_ports'] || '';
+        detection_tool.value = onePatternData['detection_tool'] || '';
+        risk_assessment.value = onePatternData['risk_assessment'] || '';
+        potential_impact.value = onePatternData['potential_impact'] || '';
+        data_or_payload.value = onePatternData['data_or_payload'] || '';
+        response_actions.value = onePatternData['response_actions'] || '';
       });
 
     });

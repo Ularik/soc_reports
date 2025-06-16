@@ -11,19 +11,19 @@ def create_stat_report(data):
     ws = workbook['Лист1']  # Указываем имя листа
 
     organs = {   # координаты столбцов органов в excell
-        'MF': {
+        'FIN': {
             'h': 'D',
             'm': 'E'
         },
-        'SCS': {
+        'GTS': {
             'h': 'F',
             'm': 'G'
         },
-        'TAX': {
+        'GNS': {
             'h': 'H',
             'm': 'I'
         },
-        'PEO': {
+        'ADM': {
             'h': 'N',
             'm': 'O'
         }
