@@ -166,7 +166,7 @@
       });
 
       // Карта описаний по типам атак
-      const descMap = {{ pattern|safe }};
+      const descMap = JSON.parse('{{ pattern|escapejs }}');
       // Элементы формы
       const descField = document.getElementById('id_short_description');
       const attackType = document.getElementById('id_attack_type');
