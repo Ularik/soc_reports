@@ -24,6 +24,7 @@ from .forms import ReportsForm
 from django.forms.models import model_to_dict
 import base64
 from django.contrib.auth import get_user_model
+import requests
 
 
 User = get_user_model()
@@ -104,7 +105,7 @@ class ReportDownloadView(View):
         ]
         if report.detection_tool == 'WAF':
             data.insert(4, [Paragraph("Host", cell), Paragraph(report.host, cell)])
-        elif report.detection_tool == 'IPS':
+        elif report.detection_tool == 'IPS' and report.cve:
             data.insert(4, [Paragraph("CVE", cell), Paragraph(report.cve, cell)])
 
         table = Table(data, colWidths=[150, 330])
@@ -118,6 +119,27 @@ class ReportDownloadView(View):
         buffer.seek(0)
 
         name = f'{report.organization.name_en} {report.source_ip}.pdf'
+
+        # Добавляем по АПИ отчет в cert.gov
+        files = {
+            'file': (name, buffer, 'application/pdf')
+        }
+
+        data = {
+            'body': json.dumps({
+                'username': report.user.username,
+                'organization': report.organization.name_ru,
+                'attack_type': report.attack_type
+            })
+        }
+
+        url = 'https://cert.gov.kg/api/router/report-create'
+        response = requests.post(url, data=data, files=files)
+
+        print(response.status_code)
+        print(response.text)
+
+
         resp = FileResponse(buffer, as_attachment=True, filename=name, content_type='application/pdf')
         return resp
 
