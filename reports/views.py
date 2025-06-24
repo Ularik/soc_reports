@@ -55,6 +55,7 @@ def report_create_view(request):
             # 3) Редиректим на чистую форму с параметром download=<pk>
             return redirect(f"{success_url}?download={report.pk}")
 
+        print(form.errors)
         messages.success(request, 'Отчет некорректен')
 
     form = ReportsForm()

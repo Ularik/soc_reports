@@ -29,7 +29,6 @@
         <div class="col-md-6">
           <label for="id_pattern" class="form-label">Шаблон</label>
           {{ form.pattern }}
-          {{ form.pattern.errors }}
         </div>
         <div class="col-md-6">
           <label for="id_attack_type" class="form-label">Тип угрозы</label>
@@ -161,8 +160,9 @@
       const selectAttack = document.getElementById('id_pattern');
 
       $('#id_pattern').select2({
-        placeholder: 'Выберите шаблон',
-        allowClear: true
+        tags: true,
+        placeholder: 'Выберите или введите шаблон',
+        width: '100%'
       });
 
       // Карта описаний по типам атак
@@ -178,14 +178,29 @@
       const data_or_payload = document.getElementById('id_data_or_payload');
       const response_actions = document.getElementById('id_response_actions');
 
+      // При изменении Средства обнаружения
+      detection_tool.addEventListener('change', (event) => {
+        if (event.target.value === 'WAF') {
+          document.getElementById('cve-block').style.display = 'none';
+          document.getElementById('host-block').style.display = 'block';
+        } else if (event.target.value === 'IPS') {
+          document.getElementById('cve-block').style.display = 'block';
+          document.getElementById('host-block').style.display = 'none';
+        }
+      });
+
       // При изменении типа атаки подставляем описание
       $('#id_pattern').on('change', function () {
         console.log('change selectAttack via jQuery');
 
         const val = selectAttack.value;
         const onePatternData = descMap[val]
+        if (!onePatternData) {
+          return; // и прекращаем выполнение
+        }
         console.log(onePatternData);
 
+        // при изменении средства обнаружения waf ips меняем поля
         if (onePatternData['detection_tool'].trim() === 'WAF') {
           document.getElementById('cve-block').style.display = 'none';
           document.getElementById('host-block').style.display = 'block';
