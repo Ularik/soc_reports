@@ -55,10 +55,10 @@ class ReportsForm(forms.ModelForm):
         pattern_obj = None
         print(raw_value)
 
-        if isinstance(raw_value, int):
+        try:
             pattern_obj = Pattern.objects.filter(pk=raw_value).first()
-
-        if raw_value and not pattern_obj:
+        except:
+            print('pattern_obj: ', pattern_obj)
             # Если это ID существующего Pattern
             pattern_obj = Pattern.objects.create(
                 name=raw_value,
