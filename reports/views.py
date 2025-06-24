@@ -132,13 +132,15 @@ class ReportDownloadView(View):
                 'attack_type': report.attack_type
             })
         }
+        try:
+            url = 'https://cert.gov.kg/api/router/report-create'
+            response = requests.post(url, data=data, files=files)
+        except Exception as err:
+            url = 'https://cert.gov.kg/api/router/report-create'
+            buffer.seek(0)
+            response = requests.post(url, data=data, files=files)
 
-        url = 'https://cert.gov.kg/api/router/report-create'
-        response = requests.post(url, data=data, files=files)
-
-        print(response.status_code)
-        print(response.text)
-
+        buffer.seek(0)
         resp = FileResponse(buffer, as_attachment=True, filename=name, content_type='application/pdf')
         return resp
 
