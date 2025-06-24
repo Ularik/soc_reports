@@ -1,7 +1,6 @@
 from django import forms
 from .models import Report, Pattern
-from django.core.exceptions import ValidationError
-
+from datetime import datetime
 
 class ReportsForm(forms.ModelForm):
     class Meta:
@@ -27,6 +26,7 @@ class ReportsForm(forms.ModelForm):
                 'class': 'form-control form-control-sm',
             }
         )
+        self.fields['detection_date'].input_formats = ['%Y/%m/%d']
         # Заполнение выпадающего списка
         self.fields['pattern'].widget.choices = [
             (str(p.pk), p.name) for p in Pattern.objects.all()
@@ -52,10 +52,11 @@ class ReportsForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         raw_value = self.data.get('pattern')
+        pattern_id = self.cleaned_data.get('pattern')
 
-        pattern_obj = None
-
-        if raw_value:
+        if pattern_id:
+            pattern_obj = Pattern.objects.filter(pk=pattern_id).first()
+        elif raw_value and not pattern_id:
             # Если это ID существующего Pattern
             pattern_obj = Pattern.objects.filter(name=raw_value).first()
             if not pattern_obj:
