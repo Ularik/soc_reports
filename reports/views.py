@@ -103,7 +103,7 @@ class ReportDownloadView(View):
             [Paragraph("Реагирование на ицнидент", cell),
              Paragraph(report.response_actions.replace('\n', '<br/>'), cell)],
         ]
-        if report.detection_tool == 'WAF':
+        if report.detection_tool == 'WAF' and report.host:
             data.insert(4, [Paragraph("Host", cell), Paragraph(report.host, cell)])
         elif report.detection_tool == 'IPS' and report.cve:
             data.insert(4, [Paragraph("CVE", cell), Paragraph(report.cve, cell)])
@@ -138,7 +138,6 @@ class ReportDownloadView(View):
 
         print(response.status_code)
         print(response.text)
-
 
         resp = FileResponse(buffer, as_attachment=True, filename=name, content_type='application/pdf')
         return resp
