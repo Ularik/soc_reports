@@ -34,6 +34,7 @@ class ReportAdmin(admin.ModelAdmin):
         'detection_date',
         'pattern',
         'attack_type',
+        'organization__name_en',
         'source_ip',
         'destination_ip',
         'detection_tool',

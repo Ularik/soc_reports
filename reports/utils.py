@@ -47,7 +47,11 @@ def create_stat_report(data):
 
         organizations_dct = data[usr]
         for org in organizations_dct:
-            h_m = organs[org]
+            h_m = organs.get(org)
+
+            if not h_m:
+                continue
+
             cell_numb_h = h_m['h'] + str(row)
             org_h_m = organizations_dct[org]
 

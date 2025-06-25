@@ -31,7 +31,7 @@ User = get_user_model()
 
 # Регистрация TTF-шрифта (путь укажите свой)
 pdfmetrics.registerFont(
-    TTFont('TimesNewRoman', r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf') # C:\Windows\Fonts\times.ttf
+    TTFont('TimesNewRoman', r'C:\Windows\Fonts\times.ttf') # C:\Windows\Fonts\times.ttf
 )
 # /usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf
 
@@ -74,7 +74,7 @@ class ReportDownloadView(View):
         report = get_object_or_404(Report, pk=pk)
 
         buffer = BytesIO()
-        pdfmetrics.registerFont(TTFont('TimesNewRoman', r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf')) # C:\Windows\Fonts\times.ttf
+        pdfmetrics.registerFont(TTFont('TimesNewRoman', r'C:\Windows\Fonts\times.ttf')) # C:\Windows\Fonts\times.ttf
         doc = SimpleDocTemplate(
             buffer, pagesize=A4,
             rightMargin=40, leftMargin=40,
