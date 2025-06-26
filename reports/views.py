@@ -188,7 +188,7 @@ def get_reports(request):
             reports_dicts[report['user__username']][report['organization__name_en']][report['risk_assessment']] = report['count']
 
 
-        output = create_stat_report(reports_dicts)
+        output = create_stat_report(reports_dicts, start=sd, end=ed)
         # Кодируем файл в base64
         excel_file_base64 = base64.b64encode(output.getvalue()).decode('utf-8')
 

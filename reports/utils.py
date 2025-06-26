@@ -6,9 +6,16 @@ from io import BytesIO
 
 User = get_user_model()
 
-def create_stat_report(data):
+def create_stat_report(data, start, end):
     workbook = load_workbook('reports/stat_rep_template/pattern.xlsx')
     ws = workbook['Лист1']  # Указываем имя листа
+
+    start_day, start_month = start.day, start.month
+    end_day, end_month = end.day, end.month
+    year = end.year
+
+    ws['A2'] = (f'СТАТИСТИЧЕСКАЯ ФОРМА ОТЧЕТНОСТИ "1" отдела КЦОКБ за период с '
+                f'{start_day}.{start_month}.{year} по {end_day}.{end_month}.{year}')
 
     organs = {   # координаты столбцов органов в excell
         'FIN': {
@@ -52,32 +59,17 @@ def create_stat_report(data):
             h_m = organs.get(org)
 
             if not h_m:
-                print(org)
                 continue
 
             cell_numb_h = h_m['h'] + str(row)
             org_h_m = organizations_dct[org]
-
             cell_val_h = org_h_m.get('Критическая', 0) + org_h_m.get('Высокая', 0)
-
-            # for merged_range in ws.merged_cells.ranges:
-            #     if ws[cell_numb_h].coordinate in merged_range:
-            #         print(merged_range.start_cell.coordinate)
-            #         ws[merged_range.start_cell.coordinate] = cell_val_h
-            #     else:
             ws[cell_numb_h] = cell_val_h
 
             h_m = organs[org]
             cell_numb_m = h_m['m'] + str(row)
             org_h_m = organizations_dct[org]
             cell_val_m = org_h_m.get('Средняя', 0) + org_h_m.get('Низкая', 0)
-
-            # ws[cell_numb_m] = cell_val_m
-            # for merged_range in ws.merged_cells.ranges:
-            #     if ws[cell_numb_m].coordinate in merged_range:
-            #         print(ws[merged_range.start_cell.coordinate])
-            #         ws[merged_range.start_cell.coordinate] = cell_val_m
-            #     else:
             ws[cell_numb_m] = cell_val_m
 
 
