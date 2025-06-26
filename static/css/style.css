@@ -6,7 +6,7 @@
 .analitickOne {
     margin-right: auto;
     width: 700px;
-    height: 500px;
+    min-height: 500px;
     margin-bottom: 30px;
 }
 

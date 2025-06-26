@@ -180,7 +180,6 @@ def get_reports(request):
                                  Q(detection_date__lte=ed) |
                                  Q(detection_date__gte=sd))
         reports_dicts = {}
-        users = User.objects.all()
 
         for report in reports:
             reports_dicts[report['user__username']] = reports_dicts.get(report['user__username'], {})

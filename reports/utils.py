@@ -42,7 +42,9 @@ def create_stat_report(data):
         ws['A' + str(row)] = i   # заполняем число нумерацию
         ws['B' + str(row)] = users[usr]   # заполняем имя пользователя
 
-        if usr not in data:   # если такой пользователь отсутствует в базе, то просто добавляем в таблицу без днных
+        data = {k.lower(): v for k, v in data.items()}
+
+        if usr.lower() not in data:   # если такой пользователь отсутствует в базе, то просто добавляем в таблицу без днных
             continue
 
         organizations_dct = data[usr]
@@ -50,6 +52,7 @@ def create_stat_report(data):
             h_m = organs.get(org)
 
             if not h_m:
+                print(org)
                 continue
 
             cell_numb_h = h_m['h'] + str(row)
