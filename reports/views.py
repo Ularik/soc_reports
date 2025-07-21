@@ -155,9 +155,9 @@ def get_reports(request):
         end = request.GET.get('end')
 
         if not (start and end):
-            agg = Report.objects.filter(detection_date__isnull=False).aggregate(
-                    min_date=Min('detection_date'),
-                    max_date=Max('detection_date')
+            agg = Report.objects.filter(created_date__isnull=False).aggregate(
+                    min_date=Min('created_date'),
+                    max_date=Max('created_date')
                 )
             if not agg['min_date']:
                 return JsonResponse({})
@@ -176,9 +176,10 @@ def get_reports(request):
         sd = datetime.combine(sd_date, time.min)
         ed = datetime.combine(ed_date, time.max)
 
-        reports = reports.filter(Q(detection_date__isnull=False) |
-                                 Q(detection_date__lte=ed) |
-                                 Q(detection_date__gte=sd))
+        reports = reports.filter(Q(created_date__isnull=False) &
+                                 Q(created_date__lte=ed) &
+                                 Q(created_date__gte=sd))
+
         reports_dicts = {}
 
         for report in reports:

@@ -91,3 +91,4 @@ class Report(models.Model):
     risk_assessment = models.CharField("Критичность", max_length=12, choices=RISK_LEVELS, default='Низкая')
     data_or_payload = models.TextField("Дата или payload", blank=True)
     response_actions = models.TextField("Реагирование на инцидент", blank=True)
+    created_date = models.DateTimeField(auto_now_add=True)

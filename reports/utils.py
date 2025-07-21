@@ -39,7 +39,9 @@ def create_stat_report(data, start, end):
         'sema': 'Семаева Н.О.',
         'aza': 'Бейшеналиев А.К.',
         'adil': 'Осмоналиев А.А.',
-        'ular': 'Касымбеков У.Н.'
+        'ular': 'Касымбеков У.Н.',
+        'daniyar': 'Станбеков Д.А.',
+        'asein': 'Уланов А. У.',
     }
 
     start_row = 6
@@ -51,11 +53,13 @@ def create_stat_report(data, start, end):
 
         data = {k.lower(): v for k, v in data.items()}
 
-        if usr.lower() not in data:   # если такой пользователь отсутствует в базе, то просто добавляем в таблицу без днных
+        if usr.lower() not in data:   # если такой пользователь отсутствует в отчетах, то просто добавляем в таблицу без днных
             continue
 
         organizations_dct = data[usr]
+        print(usr)
         for org in organizations_dct:
+            print(org, organizations_dct[org])
             h_m = organs.get(org)
 
             if not h_m:
@@ -66,19 +70,19 @@ def create_stat_report(data, start, end):
             cell_val_h = org_h_m.get('Критическая', 0) + org_h_m.get('Высокая', 0)
             ws[cell_numb_h] = cell_val_h
 
-            h_m = organs[org]
             cell_numb_m = h_m['m'] + str(row)
             org_h_m = organizations_dct[org]
             cell_val_m = org_h_m.get('Средняя', 0) + org_h_m.get('Низкая', 0)
             ws[cell_numb_m] = cell_val_m
 
 
+    row_for_results =13
     # Суммирование по столбцам
     for col in range(3, 21):
         col_letter = get_column_letter(col)
         formula = f"=SUM({col_letter}{start_row}:{col_letter}{11 - 1})"
-        ws.cell(row=11, column=col).value = formula
-        ws.cell(row=11, column=col).alignment = Alignment(horizontal='center')
+        ws.cell(row=row_for_results, column=col).value = formula
+        ws.cell(row=row_for_results, column=col).alignment = Alignment(horizontal='center')
 
     # Сохранение файла
     # Сохранение файла в память
