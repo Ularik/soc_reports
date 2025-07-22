@@ -1,10 +1,13 @@
-from openpyxl import Workbook, load_workbook
-from openpyxl.styles import Font, Alignment
+from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 from django.contrib.auth import get_user_model
+from user.models import CustomUser
 from io import BytesIO
+from openpyxl.utils import get_column_letter
+from copy import copy
 
 User = get_user_model()
+
 
 def create_stat_report(data, start, end):
     workbook = load_workbook('reports/stat_rep_template/pattern.xlsx')
@@ -14,75 +17,55 @@ def create_stat_report(data, start, end):
     end_day, end_month = end.day, end.month
     year = end.year
 
-    ws['A2'] = (f'СТАТИСТИЧЕСКАЯ ФОРМА ОТЧЕТНОСТИ "1" отдела КЦОКБ за период с '
+    ws['A2'] = (f'СТАТИСТИЧЕСКАЯ ФОРМА ОТЧЕТНОСТИ по мониторингу SOC "1" отдела КЦОКБ за период с '
                 f'{start_day}.{start_month}.{year} по {end_day}.{end_month}.{year}')
 
-    organs = {   # координаты столбцов органов в excell
-        'FIN': {
-            'h': 'D',
-            'm': 'E'
-        },
-        'GTS': {
-            'h': 'F',
-            'm': 'G'
-        },
-        'GNS': {
-            'h': 'H',
-            'm': 'I'
-        },
-        'ADM': {
-            'h': 'N',
-            'm': 'O'
-        }
-    }
-    users = {
-        'sema': 'Семаева Н.О.',
-        'aza': 'Бейшеналиев А.К.',
-        'adil': 'Осмоналиев А.А.',
-        'ular': 'Касымбеков У.Н.',
-        'daniyar': 'Станбеков Д.А.',
-        'asein': 'Уланов А. У.',
-    }
+    users = CustomUser.objects.all()
 
-    start_row = 6
+    start_row = 6  # внутри excel начинаем заполнять поля с 6 строки
 
     for i, usr in enumerate(users, 1):
-        row = start_row + i
-        ws['A' + str(row)] = i   # заполняем число нумерацию
-        ws['B' + str(row)] = users[usr]   # заполняем имя пользователя
+        row = start_row + i    # номер строки
+        if i > 4:
+            ws.insert_rows(row)
 
-        data = {k.lower(): v for k, v in data.items()}
+            # Копируем стиль со строки выше
+            for col in range(1, ws.max_column + 1):
+                col_letter = get_column_letter(col)
+                cell_above = ws[f'{col_letter}{row - 1}']
+                cell_new = ws[f'{col_letter}{row}']
+                cell_new._style = copy(cell_above._style)
 
-        if usr.lower() not in data:   # если такой пользователь отсутствует в отчетах, то просто добавляем в таблицу без днных
-            continue
+        ws['A' + str(row)] = i  # заполняем числами нумерацию в первом столбце
+        ws['B' + str(row)] = usr.username_ru if usr.username_ru else usr.username  # заполняем имя пользователя во втором столбце
 
-        organizations_dct = data[usr]
-        print(usr)
-        for org in organizations_dct:
-            print(org, organizations_dct[org])
-            h_m = organs.get(org)
+        organizations_dct = data.get(usr.username)
+        if organizations_dct is None:
+            for symbol_column in ('D', 'E', 'F', 'G', 'H', 'I', 'N', 'O'):
+                ws[f"{symbol_column}{row}"] = 0
+        else:
+            for org in organizations_dct:
+                risk_assessment_dict = organizations_dct[org]
 
-            if not h_m:
-                continue
+                if org == 'FIN':
+                    ws[f'D{row}'] = risk_assessment_dict.get('Критическая', 0) + risk_assessment_dict.get('Высокая', 0)
+                    ws[f'E{row}'] = risk_assessment_dict.get('Средняя', 0) + risk_assessment_dict.get('Низкая', 0)
+                elif org == 'GTS':
+                    ws[f'F{row}'] = risk_assessment_dict.get('Критическая', 0) + risk_assessment_dict.get('Высокая', 0)
+                    ws[f'G{row}'] = risk_assessment_dict.get('Средняя', 0) + risk_assessment_dict.get('Низкая', 0)
+                elif org == 'GNS':
+                    ws[f'H{row}'] = risk_assessment_dict.get('Критическая', 0) + risk_assessment_dict.get('Высокая', 0)
+                    ws[f'I{row}'] = risk_assessment_dict.get('Средняя', 0) + risk_assessment_dict.get('Низкая', 0)
+                elif org =='ADM':
+                    ws[f'N{row}'] = risk_assessment_dict.get('Критическая', 0) + risk_assessment_dict.get('Высокая', 0)
+                    ws[f'O{row}'] = risk_assessment_dict.get('Средняя', 0) + risk_assessment_dict.get('Низкая', 0)
 
-            cell_numb_h = h_m['h'] + str(row)
-            org_h_m = organizations_dct[org]
-            cell_val_h = org_h_m.get('Критическая', 0) + org_h_m.get('Высокая', 0)
-            ws[cell_numb_h] = cell_val_h
-
-            cell_numb_m = h_m['m'] + str(row)
-            org_h_m = organizations_dct[org]
-            cell_val_m = org_h_m.get('Средняя', 0) + org_h_m.get('Низкая', 0)
-            ws[cell_numb_m] = cell_val_m
-
-
-    row_for_results =13
+    row_for_results = start_row + 1 + len(users)   # строка для подсчета итогов всех строк
     # Суммирование по столбцам
-    for col in range(3, 21):
+    for col in range(3, 21):    # 3, 21 столбцы с количеством отчетов
         col_letter = get_column_letter(col)
-        formula = f"=SUM({col_letter}{start_row}:{col_letter}{11 - 1})"
+        formula = f"=SUM({col_letter}{start_row + 1}:{col_letter}{start_row + len(users)})"
         ws.cell(row=row_for_results, column=col).value = formula
-        ws.cell(row=row_for_results, column=col).alignment = Alignment(horizontal='center')
 
     # Сохранение файла
     # Сохранение файла в память

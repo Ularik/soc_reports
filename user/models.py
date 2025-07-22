@@ -17,7 +17,7 @@ class CustomUserManager(BaseUserManager):
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     username = models.CharField(max_length=100, unique=True)
-    username_ru = models.CharField(max_length=100, unique=True)
+    username_ru = models.CharField(max_length=100, unique=True, null=True, blank=True)
     is_staff = models.BooleanField(
         "staff status",
         default=False,

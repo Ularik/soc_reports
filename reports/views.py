@@ -26,14 +26,17 @@ import base64
 from django.contrib.auth import get_user_model
 import requests
 
-
 User = get_user_model()
 
 # Регистрация TTF-шрифта (путь укажите свой)
-pdfmetrics.registerFont(
-    TTFont('TimesNewRoman', r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf') # C:\Windows\Fonts\times.ttf
-)
-# /usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf
+try:
+    pdfmetrics.registerFont(
+        TTFont('TimesNewRoman', r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf')
+    )
+except:
+    pdfmetrics.registerFont(
+        TTFont('TimesNewRoman', r'C:\Windows\Fonts\times.ttf')
+    )
 
 def report_create_view(request):
     template_name = 'reports/report_waf_form.html'
@@ -74,7 +77,12 @@ class ReportDownloadView(View):
         report = get_object_or_404(Report, pk=pk)
 
         buffer = BytesIO()
-        pdfmetrics.registerFont(TTFont('TimesNewRoman', r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf')) # C:\Windows\Fonts\times.ttf
+
+        try:
+            pdfmetrics.registerFont(TTFont('TimesNewRoman', r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf'))
+        except:
+            pdfmetrics.registerFont(TTFont('TimesNewRoman', r'C:\Windows\Fonts\times.ttf'))
+
         doc = SimpleDocTemplate(
             buffer, pagesize=A4,
             rightMargin=40, leftMargin=40,
@@ -231,7 +239,6 @@ class AnalyticsView(TemplateView):
                 max_date=Max('detection_date')
             )
 
-            print(agg)
             start = agg['min_date'].date().isoformat()
             end = agg['max_date'].date().isoformat()
 
