@@ -4,3 +4,5 @@ pillow
 reportlab~=4.4.0
 requests
 django-ninja
+djangorestframework
+six

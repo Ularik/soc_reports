@@ -25,6 +25,8 @@ from django.forms.models import model_to_dict
 import base64
 from django.contrib.auth import get_user_model
 import requests
+from django.contrib.auth.decorators import login_required
+
 
 User = get_user_model()
 
@@ -38,6 +40,7 @@ except:
         TTFont('TimesNewRoman', r'C:\Windows\Fonts\times.ttf')
     )
 
+@login_required(login_url='user/login/')
 def report_create_view(request):
     template_name = 'reports/report_waf_form.html'
 

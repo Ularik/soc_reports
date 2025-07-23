@@ -42,6 +42,8 @@ INSTALLED_APPS = [
 
     'reports',
     'user',
+    'rest_framework',
+    'db_logger',
 ]
 
 AUTH_USER_MODEL = 'user.CustomUser'
@@ -139,3 +141,68 @@ else:
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+
+LOGS_DIR = os.path.join(BASE_DIR, 'logs/')
+
+if not os.path.exists(LOGS_DIR):
+    os.makedirs(LOGS_DIR)
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'console': {
+            'format': '%(name)-12s %(levelname)-8s %(message)s'
+        },
+        'file': {
+            'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
+        },
+        'db_log': {
+            'format': '%(name)-12s %(message)s'
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'console'
+        },
+        'file_django': {
+            'class': 'logging.FileHandler',  # logging.handlers.RotatingFileHandler - если нужно пересоздавать
+            'formatter': 'file',
+            'filename': LOGS_DIR + 'django.log',
+        },
+        'db_log': {
+            'level': 'DEBUG',
+            'formatter': 'db_log',
+            'class': 'db_logger.db_log_handler.DatabaseLogHandler'
+        },
+        'file_api': {
+            'class': 'logging.FileHandler',
+            'formatter': 'file',
+            'filename': LOGS_DIR + 'api.log',
+        },
+        'file_reports': {
+            'class': 'logging.FileHandler',  # logging.handlers.RotatingFileHandler - если нужно пересоздавать
+            'formatter': 'file',
+            'filename': LOGS_DIR + 'reports.log',
+        },
+    },
+    'loggers': {
+        'django': {
+            'level': 'WARNING',
+            'handlers': ['console', 'file_django']
+        },
+        'API': {
+            'level': 'INFO',
+            'handlers': ['console', 'db_log', 'file_api'],
+        },
+        'reports': {
+            'level': 'INFO',
+            'handlers': ['console', 'db_log', 'file_reports'],
+        }
+    },
+}
+
+DJANGO_DB_LOGGER_ENABLE_FORMATTER = True
