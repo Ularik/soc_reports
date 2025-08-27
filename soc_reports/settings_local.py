@@ -2,26 +2,26 @@ DEV = False
 
 DEBUG = True
 
-SECRET_KEY = 'django-insecure-********'
+SECRET_KEY = 'django-insecure-^fwo0knx+#^$%n^%^9h3l*dv_np^3t$2i2!ekwl9)ife8b-!a@'
 
 ALLOWED_HOSTS = ['*']
-CSRF_TRUSTED_ORIGINS = ['https://site.local', 'http://localhost:5173/']
+CSRF_TRUSTED_ORIGINS = ['http://192.168.100.104:8080', 'http://192.168.51.202:8080', 'http://192.168.100.109:8080']
 
 
-DB_NAME_DEV = ''
-DB_USER_DEV = ''
-DB_PASS_DEV = ''
-DB_HOST_DEV = ''
+DB_NAME_DEV = 'reports'
+DB_USER_DEV = 'ular'
+DB_PASS_DEV = 'admin'
+DB_HOST_DEV = 'localhost'
 DB_NAME_DEV_TEST = ''
 DB_PORT_DEV = '5432'
 
 DB_ENGINE =  'django.db.backends.oracle'
-DB_NAME = ''
-DB_USER = ''
-DB_PASS = ''
-DB_HOST = ''
+DB_NAME = 'reports'
+DB_USER = 'ular'
+DB_PASS = 'admin'
+DB_HOST = 'localhost'
 DB_NAME_TEST = ''
-DB_PORT = ''
+DB_PORT = '5432'
 
 # Чат бот отправки логов
 SEND_BOT = False

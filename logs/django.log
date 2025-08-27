@@ -174,3 +174,5 @@ Traceback (most recent call last):
     raise NoReverseMatch(msg)
 django.urls.exceptions.NoReverseMatch: Reverse for 'login' not found. 'login' is not a valid view function or pattern name.
 2025-07-23 18:04:55,148 django.server ERROR    "GET / HTTP/1.1" 500 145
+2025-08-27 16:17:55,905 django.request WARNING  Not Found: /favicon.ico
+2025-08-27 16:17:55,905 django.server WARNING  "GET /favicon.ico HTTP/1.1" 404 4647

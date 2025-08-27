@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+from .settings_local import *
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,15 +20,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-^fwo0knx+#^$%n^%^9h3l*dv_np^3t$2i2!ekwl9)ife8b-!a@'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 import os
-
-ALLOWED_HOSTS = ['*']
-CSRF_TRUSTED_ORIGINS = ['http://192.168.100.104:8080', 'http://192.168.51.202:8080', 'http://192.168.100.109:8080']
-
 
 # Application definition
 
@@ -83,11 +78,14 @@ WSGI_APPLICATION = 'soc_reports.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': DB_NAME_DEV,  # Имя вашей базы данных
+        'USER': DB_USER_DEV,      # Имя вашего пользователя
+        'PASSWORD': DB_PASS_DEV,  # Ваш пароль
+        'HOST': DB_HOST_DEV,   # Хост, на котором работает PostgreSQL
+        'PORT': DB_PORT_DEV,            # Порт (по умолчанию 5432)
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

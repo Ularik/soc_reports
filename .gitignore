@@ -1,5 +1,6 @@
 .venv
 .idea
+soc_reports/settings_local.py
 __pycache__/
 **/__pycache__/
 *.pyc
