@@ -7,3 +7,4 @@ django-ninja
 djangorestframework
 six
 psycopg2-binary
+openpyxl
