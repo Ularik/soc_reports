@@ -449,7 +449,7 @@ class MonthlyReportView(TemplateView):
                     'rec': rec,
                     'destination_ips': list(group.values_list('destination_ip', flat=True).distinct()),
                     'source_ip': src,
-                    'warning': rec.attack_type.name,
+                    'warning': rec.attack_type,
                     'priority': rec.risk_assessment,
                     'requests': cnt,
                 })
