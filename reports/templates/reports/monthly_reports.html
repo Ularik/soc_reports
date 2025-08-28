@@ -16,7 +16,7 @@
       <select name="org" id="org" class="form-select">
         <option value="">— выбрать —</option>
         {% for org in organizations %}
-          <option value="{{ org.pk }}" {% if selected_org == org.pk %}selected{% endif %}>{{ org.name }}</option>
+          <option value="{{ org.pk }}" {% if selected_org == org.pk %}selected{% endif %}>{{ org.name_en }}</option>
         {% endfor %}
       </select>
     </div>
