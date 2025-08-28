@@ -217,12 +217,6 @@ def get_reports(request):
         return JsonResponse(response_data)
 
 
-def create_static_reports(request, ):
-    reports = Report.objects.all()
-
-    return
-
-
 class AnalyticsView(TemplateView):
     template_name = 'reports/analytics.html'
 
@@ -409,7 +403,7 @@ class MonthlyReportView(TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['organizations'] = Organization.objects.order_by('name')
+        ctx['organizations'] = Organization.objects.order_by('name_en')
         ctx['risk_levels'] = RISK_LEVELS
 
         org_id = self.request.GET.get('org')

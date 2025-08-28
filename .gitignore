@@ -1,5 +1,6 @@
 .venv
 .idea
+logs
 soc_reports/settings_local.py
 __pycache__/
 **/__pycache__/
