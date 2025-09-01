@@ -366,7 +366,7 @@ def export_monthly_reports(request):
             rows.append({
                 'destination': ', '.join(group.values_list('destination_ip', flat=True).distinct()),
                 'source': src,
-                'warning': rec.attack_type.name,
+                'warning': rec.attack_type.name_en,
                 'priority': rec.risk_assessment,
             })
 
