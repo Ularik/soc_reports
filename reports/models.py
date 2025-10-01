@@ -33,6 +33,7 @@ class Organization(models.Model):
 
 class Pattern(models.Model):
     name = models.CharField("Название шаблона", max_length=100)
+    country = models.CharField("Страна", max_length=100, null=True, blank=True)
     attack_type = models.CharField("Название атаки", max_length=100, null=True, blank=True)
     description = models.TextField("Описание атаки",  null=True, blank=True)
     methods = models.CharField(max_length=200, verbose_name='Методы атаки',  null=True, blank=True)
@@ -64,6 +65,7 @@ class Pattern(models.Model):
 class Report(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, verbose_name='Пользователь', null=True, blank=True)
     detection_date = models.DateTimeField("Дата и время выявления угрозы")
+    country = models.CharField("Страна", max_length=100, null=True, blank=True)
     organization = models.ForeignKey(
         Organization,
         verbose_name="Организация",

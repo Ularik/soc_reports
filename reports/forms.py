@@ -6,7 +6,7 @@ class ReportsForm(forms.ModelForm):
     class Meta:
         model = Report
         fields = [
-            'detection_date', 'organization', 'pattern',  'attack_type', 'source_ip',
+            'detection_date', 'country', 'organization', 'pattern',  'attack_type', 'source_ip',
             'destination_ip', 'cve', 'host', 'detection_tool',
             'short_description', 'methods', 'protocols_ports',
             'potential_impact', 'risk_assessment', 'data_or_payload', 'response_actions',

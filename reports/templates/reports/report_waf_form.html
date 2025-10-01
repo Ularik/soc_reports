@@ -17,6 +17,15 @@
           <input type="text" value="{% if request.user.is_authenticated %}{{ request.user }}{% endif %}">
         </div>
         <div class="col-md-6">
+          <label for="id_pattern" class="form-label">Шаблон</label>
+          {{ form.pattern }}
+        </div>
+        <div class="col-md-6">
+          <label for="id_country" class="form-label">Страна</label>
+          {{ form.country }}
+          {{ form.country.errors }}
+        </div>
+        <div class="col-md-6">
           <label for="id_detection_date" class="form-label">Дата и время выявления угрозы</label>
           {{ form.detection_date }}
           {{ form.detection_date.errors }}
@@ -25,10 +34,6 @@
           <label for="id_organization" class="form-label">Организация</label>
           {{ form.organization }}
           {{ form.organization.errors }}
-        </div>
-        <div class="col-md-6">
-          <label for="id_pattern" class="form-label">Шаблон</label>
-          {{ form.pattern }}
         </div>
         <div class="col-md-6">
           <label for="id_attack_type" class="form-label">Тип угрозы</label>

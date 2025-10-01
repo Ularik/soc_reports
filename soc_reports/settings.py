@@ -139,8 +139,6 @@ else:
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-
-
 LOGS_DIR = os.path.join(BASE_DIR, 'logs/')
 
 if not os.path.exists(LOGS_DIR):
