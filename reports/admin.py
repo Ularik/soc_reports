@@ -49,6 +49,7 @@ class ReportAdmin(admin.ModelAdmin):
         'source_ip',
         'destination_ip',
         'pattern__name',
+        'cve',
     )
 
 
