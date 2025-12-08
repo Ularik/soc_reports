@@ -66,20 +66,8 @@ class Report(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, verbose_name='Пользователь', null=True, blank=True)
     detection_date = models.DateTimeField("Дата и время выявления угрозы")
     country = models.CharField("Страна", max_length=100, null=True, blank=True)
-    organization = models.ForeignKey(
-        Organization,
-        verbose_name="Организация",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
-    )
-    pattern = models.ForeignKey(
-        Pattern,
-        verbose_name="Шаблон",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
-    )
+    organization = models.ForeignKey(Organization, verbose_name="Организация", on_delete=models.SET_NULL, null=True, blank=True)
+    pattern = models.ForeignKey(Pattern, verbose_name="Шаблон", on_delete=models.SET_NULL, null=True, blank=True)
     attack_type = models.CharField("Название атаки", max_length=100, null=True, blank=True)
     source_ip = models.GenericIPAddressField("Источник угрозы")
     destination_ip = models.GenericIPAddressField("Адрес назначения")

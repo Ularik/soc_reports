@@ -49,3 +49,8 @@
 .lower-width {
     width: 20px;
 }
+
+.analytics-charts {
+    display: flex;
+    gap: 50px;
+}

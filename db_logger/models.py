@@ -3,8 +3,8 @@ from django.db import models
 from six import python_2_unicode_compatible
 from django.utils.translation import gettext_lazy as _
 import requests
-from soc_reports.settings_local import *
-from soc_reports.settings_local import DEV, SEND_BOT
+from project.settings_local import *
+from project.settings_local import DEV, SEND_BOT
 
 LOG_LEVELS = (
     (logging.NOTSET, _('NotSet')),

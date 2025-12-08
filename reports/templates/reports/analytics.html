@@ -7,7 +7,7 @@
   <div class="analitick-block">
     <div class="analitickOne">
       <h1>Аналитика по типам атак (в %)</h1>
-      <form method="get" class="mb-4">
+      <form id="reports_filter" method="get" class="mb-4">
         <label>С:</label>
         <input type="date" name="start" value="{{ start }}">
         <label>По:</label>
@@ -15,20 +15,38 @@
         <button type="submit" class="btn btn-primary">Показать</button>
       </form>
 
-      {% if labels %}
+      <div class="analytics-charts">
         <div style="width:30%;">
-          <canvas id="attackChart"></canvas>
+          <div>
+            <canvas id="attack-methods-chart"></canvas>
+          </div>
+          <!-- Легенда по цветам -->
+          <ul id="legend" class="list-unstyled mt-3"></ul>
         </div>
-        <!-- Легенда по цветам -->
-        <ul id="legend" class="list-unstyled mt-3"></ul>
-      {% else %}
-        <p>Нет данных за выбранный период.</p>
-      {% endif %}
+
+        <div style="width:30%;">
+          <div>
+            <canvas id="attack-risc-chart"></canvas>
+          </div>
+          <!-- Легенда по цветам -->
+          <ul id="legend-risc" class="list-unstyled mt-3"></ul>
+        </div>
+
+        <div style="width:30%;">
+          <div>
+            <canvas id="countries-chart"></canvas>
+          </div>
+          <!-- Легенда по цветам -->
+          <ul id="legend-countries" class="list-unstyled mt-3"></ul>
+        </div>
+
+      </div>
+
     </div>
 
     <div class="analitickTwo">
       <h1>Статистический отчет по работе</h1>
-      <form id="static-report-form" action="{% url 'reports:static_report' %}" method="get" class="mb-4">
+      <form id="static-report-form" action="." method="get" class="mb-4">
         <label>С:</label>
         <input type="date" name="start" value="{{ start }}">
         <label>По:</label>
@@ -83,54 +101,7 @@
 {% endblock %}
 
 {% block scripts %}
-  {% if labels %}
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-      // Данные из контекста
-      const chartLabels = {{ labels|safe }};
-      const chartData   = {{ data|safe }};
-      // Палитра цветов
-      const backgroundColors = [
-        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
-        '#9966FF', '#FF9F40', '#C9CBCF', '#4D5360',
-        '#46BFBD', '#FDB45C'
-      ].slice(0, chartLabels.length);
-
-      // Инициализация диаграммы
-      const ctx = document.getElementById('attackChart').getContext('2d');
-      new Chart(ctx, {
-        type: 'pie',
-        data: {
-          labels: chartLabels,
-          datasets: [{
-            data: chartData,
-            backgroundColor: backgroundColors,
-            label: 'Процент от общего числа атак'
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            tooltip: {
-              callbacks: {
-                label: ctx => ctx.label + ': ' + ctx.parsed + '%'
-              }
-            },
-            legend: { display: false }
-          }
-        }
-      });
-
-      // Генерация пользовательской легенды
-      const legendContainer = document.getElementById('legend');
-      chartLabels.forEach((label, i) => {
-        const li = document.createElement('li');
-        li.innerHTML =
-          `<span style="display:inline-block;width:12px;height:12px;background-color:${backgroundColors[i]};margin-right:8px;"></span>` +
-          `${label} — ${chartData[i]}%`;
-        legendContainer.appendChild(li);
-      });
-    </script>
-  {% endif %}
-  <script src="{% static 'js/statick-report-table.js' %}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="{% static 'js/analytics/fillPage.js' %}"></script>
+  <script src="{% static 'js/analytics/statick-report-table.js' %}"></script>
 {% endblock %}

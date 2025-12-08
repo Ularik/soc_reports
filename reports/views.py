@@ -217,79 +217,150 @@ def get_reports(request):
         return JsonResponse(response_data)
 
 
-class AnalyticsView(TemplateView):
-    template_name = 'reports/analytics.html'
+def analytics_view(request):
+    return render(request, 'reports/analytics.html', {})
 
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        start = self.request.GET.get('start')
-        end = self.request.GET.get('end')
 
-        # Если даты не заданы, берём весь диапазон из БД
-        if not (start and end):
-            agg = (Report.objects.filter(detection_date__isnull=False))
-            if not agg:
-                return ctx
+def get_attack_types_for_chart(request):
+    contex = {}
+    start = request.GET.get('start')
+    end = request.GET.get('end')
 
-            agg = agg.aggregate(
-                min_date=Min('detection_date'),
-                max_date=Max('detection_date')
-            )
-
-            start = agg['min_date'].date().isoformat()
-            end = agg['max_date'].date().isoformat()
-
-        # Преобразуем строки в даты
-        try:
-            sd_date = datetime.strptime(start, "%Y-%m-%d").date()
-            ed_date = datetime.strptime(end, "%Y-%m-%d").date()
-        except ValueError:
-            ctx.update({'labels': [], 'data': [], 'start': start, 'end': end})
-            return ctx
-
-        # Границы периода: с полуночи start до конца дня end
-        sd = datetime.combine(sd_date, time.min)
-        ed = datetime.combine(ed_date, time.max)
-
-        # Общее число отчётов в период
-        total = Report.objects.filter(
-            detection_date__gte=sd,
-            detection_date__lte=ed
-        ).count() or 1
-
-        # Группировка по типу атаки
-        qs = (
-            Report.objects
-            .filter(detection_date__gte=sd, detection_date__lte=ed)
-            .values('attack_type')
-            .annotate(count=Count('id'))
-            .order_by('-count')
+    # Получаем границы из БД, если их нет
+    if not (start and end):
+        bounds = Report.objects.aggregate(
+            min_date=Min('detection_date'),
+            max_date=Max('detection_date')
         )
+        if not bounds['min_date']:
+            contex.update({'labels': [], 'data': []})
+            return contex
 
-        # Группируем прочие категории
-        MAX_SLICES = 10
-        labels = []
-        data = []
-        other_count = 0
+        start = bounds['min_date']
+        end = bounds['max_date']
 
-        for idx, item in enumerate(qs):
-            if idx < MAX_SLICES:
-                labels.append(item['attack_type'])
-                data.append(round(item['count'] / total * 100, 2))
-            else:
-                other_count += item['count']
+    filtered = Report.objects.filter(
+        detection_date__range=(start, end)
+    )
 
-        if other_count:
-            labels.append('Прочие')
-            data.append(round(other_count / total * 100, 2))
+    total = filtered.count() or 1
 
-        ctx.update({
-            'labels': labels,
-            'data': data,
-            'start': start,
-            'end': end,
-        })
-        return ctx
+    # Группировка
+    qs = (
+        filtered
+        .values('attack_type')
+        .annotate(count=Count('id'))
+        .order_by('-count')
+    )
+
+    max_attack_types = 10   # вытаскивам первые 10 наиболее встречающихся видов атак
+    top = list(qs[:max_attack_types])
+    others = list(qs[max_attack_types:])
+
+    labels = [item['attack_type'] for item in top]
+    data = [round(item['count'] / total * 100, 2) for item in top]
+
+    if others:
+        other_sum = sum(item['count'] for item in others)
+        labels.append('Прочие')
+        data.append(round(other_sum / total * 100, 2))
+
+    contex.update({
+        'labels': labels,
+        'data': data,
+        'start': start,
+        'end': end,
+    })
+    return JsonResponse(contex)
+
+
+def get_risk_assessments_reports(request):
+    contex = {}
+    start = request.GET.get('start')
+    end = request.GET.get('end')
+
+    # Получаем границы из БД, если их нет
+    if not (start and end):
+        bounds = Report.objects.aggregate(
+            min_date=Min('detection_date'),
+            max_date=Max('detection_date')
+        )
+        if not bounds['min_date']:
+            contex.update({'labels': [], 'data': []})
+            return contex
+
+        start = bounds['min_date']
+        end = bounds['max_date']
+
+    filtered = Report.objects.filter(
+        detection_date__range=(start, end)
+    )
+
+    total = filtered.count() or 1
+
+    # Группировка
+    qs = (
+        filtered
+        .values('risk_assessment')
+        .annotate(count=Count('id'))
+        .order_by('-count')
+    )
+
+    labels = [item['risk_assessment'] for item in qs]
+    data = [round(item['count'] / total * 100, 2) for item in qs]
+
+    contex.update({
+        'labels': labels,
+        'data': data,
+        'start': start,
+        'end': end,
+    })
+    return JsonResponse(contex)
+
+
+def get_countries_attacks(request):
+    contex = {}
+    start = request.GET.get('start')
+    end = request.GET.get('end')
+
+    # Получаем границы из БД, если их нет
+    if not (start and end):
+        bounds = Report.objects.aggregate(
+            min_date=Min('detection_date'),
+            max_date=Max('detection_date')
+        )
+        if not bounds['min_date']:
+            contex.update({'labels': [], 'data': []})
+            return contex
+
+        start = bounds['min_date']
+        end = bounds['max_date']
+
+    filtered = Report.objects.filter(
+        detection_date__range=(start, end),
+        country__isnull=False
+    )
+
+    total = filtered.count() or 1
+
+    # Группировка
+    qs = (
+        filtered
+        .values('country')
+        .annotate(count=Count('id'))
+        .order_by('-count')
+    )
+
+    labels = [item['country'] for item in qs]
+    data = [round(item['count'] / total * 100, 2) for item in qs]
+
+    contex.update({
+        'labels': labels,
+        'data': data,
+        'start': start,
+        'end': end,
+    })
+    return JsonResponse(contex)
 
 
 class ReportListView(ListView):
