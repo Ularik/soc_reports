@@ -349,7 +349,7 @@ def get_countries_attacks(request):
         .values('country')
         .annotate(count=Count('id'))
         .order_by('-count')
-    )
+    )[:10]
 
     labels = [item['country'] for item in qs]
     data = [round(item['count'] / total * 100, 2) for item in qs]
