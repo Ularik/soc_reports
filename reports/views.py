@@ -234,7 +234,7 @@ def get_attack_types_for_chart(request):
         )
         if not bounds['min_date']:
             contex.update({'labels': [], 'data': []})
-            return contex
+            return JsonResponse(contex)
 
         start = bounds['min_date']
         end = bounds['max_date']
@@ -287,7 +287,7 @@ def get_risk_assessments_reports(request):
         )
         if not bounds['min_date']:
             contex.update({'labels': [], 'data': []})
-            return contex
+            return JsonResponse(contex)
 
         start = bounds['min_date']
         end = bounds['max_date']
@@ -331,7 +331,7 @@ def get_countries_attacks(request):
         )
         if not bounds['min_date']:
             contex.update({'labels': [], 'data': []})
-            return contex
+            return JsonResponse(contex)
 
         start = bounds['min_date']
         end = bounds['max_date']
@@ -353,6 +353,77 @@ def get_countries_attacks(request):
 
     labels = [item['country'] for item in qs]
     data = [round(item['count'] / total * 100, 2) for item in qs]
+
+    contex.update({
+        'labels': labels,
+        'data': data,
+        'start': start,
+        'end': end,
+    })
+    return JsonResponse(contex)
+
+def get_static_reports_data(request):
+    contex = {}
+    start = request.GET.get('start')
+    end = request.GET.get('end')
+
+    # Если даты не заданы, берём весь диапазон из БД
+    if not (start and end):
+        agg = (Report.objects.filter(detection_date__isnull=False))
+        if not agg:
+            JsonResponse(contex)
+
+        agg = agg.aggregate(
+            min_date=Min('detection_date'),
+            max_date=Max('detection_date')
+        )
+
+        start = agg['min_date'].date().isoformat()
+        end = agg['max_date'].date().isoformat()
+
+        # Преобразуем строки в даты
+    try:
+        sd_date = datetime.strptime(start, "%Y-%m-%d").date()
+        ed_date = datetime.strptime(end, "%Y-%m-%d").date()
+    except ValueError:
+        contex.update({'labels': [], 'data': [], 'start': start, 'end': end})
+        return JsonResponse(contex)
+
+        # Границы периода: с полуночи start до конца дня end
+    sd = datetime.combine(sd_date, time.min)
+    ed = datetime.combine(ed_date, time.max)
+
+    # Общее число отчётов в период
+    total = Report.objects.filter(
+        detection_date__gte=sd,
+        detection_date__lte=ed
+    ).count() or 1
+
+    # Группировка по типу атаки
+    qs = (
+        Report.objects
+        .filter(detection_date__gte=sd, detection_date__lte=ed)
+        .values('attack_type')
+        .annotate(count=Count('id'))
+        .order_by('-count')
+    )
+
+    # Группируем прочие категории
+    MAX_SLICES = 10
+    labels = []
+    data = []
+    other_count = 0
+
+    for idx, item in enumerate(qs):
+        if idx < MAX_SLICES:
+            labels.append(item['attack_type'])
+            data.append(round(item['count'] / total * 100, 2))
+        else:
+            other_count += item['count']
+
+    if other_count:
+        labels.append('Прочие')
+        data.append(round(other_count / total * 100, 2))
 
     contex.update({
         'labels': labels,

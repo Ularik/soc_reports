@@ -3,8 +3,8 @@ document.querySelector('#static-report-form').addEventListener('submit', async (
 
     const form = e.target;
     const params = new URLSearchParams(new FormData(form)).toString();
-    const url = `${form.action}?${params}`;
-
+    const url = `${window.location.origin}/analytics-static-reports/`;
+    console.log(url);
       const response = await fetch(url, {
         headers: {
           'X-Requested-With': 'XMLHttpRequest' // можно использовать для определения Ajax-запроса на сервере
