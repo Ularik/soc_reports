@@ -47,22 +47,29 @@ def create_stat_report(data, start, end):
             for org in organizations_dct:
                 risk_assessment_dict = organizations_dct[org]
 
-                if org == 'FIN':
-                    ws[f'D{row}'] = risk_assessment_dict.get('Критическая', 0) + risk_assessment_dict.get('Высокая', 0)
-                    ws[f'E{row}'] = risk_assessment_dict.get('Средняя', 0) + risk_assessment_dict.get('Низкая', 0)
-                elif org == 'GTS':
-                    ws[f'F{row}'] = risk_assessment_dict.get('Критическая', 0) + risk_assessment_dict.get('Высокая', 0)
-                    ws[f'G{row}'] = risk_assessment_dict.get('Средняя', 0) + risk_assessment_dict.get('Низкая', 0)
-                elif org == 'GNS':
-                    ws[f'H{row}'] = risk_assessment_dict.get('Критическая', 0) + risk_assessment_dict.get('Высокая', 0)
-                    ws[f'I{row}'] = risk_assessment_dict.get('Средняя', 0) + risk_assessment_dict.get('Низкая', 0)
-                elif org =='ADM':
-                    ws[f'N{row}'] = risk_assessment_dict.get('Критическая', 0) + risk_assessment_dict.get('Высокая', 0)
-                    ws[f'O{row}'] = risk_assessment_dict.get('Средняя', 0) + risk_assessment_dict.get('Низкая', 0)
+                height_count = risk_assessment_dict.get('Критическая', 0) + risk_assessment_dict.get('Высокая', 0)
+                low_count = risk_assessment_dict.get('Средняя', 0) + risk_assessment_dict.get('Низкая', 0)
 
-    row_for_results = start_row + 1 + len(users)   # строка для подсчета итогов всех строк
-    # Суммирование по столбцам
-    for col in range(3, 21):    # 3, 21 столбцы с количеством отчетов
+                if org == 'FIN':
+                    ws[f'D{row}'] = height_count
+                    ws[f'E{row}'] = low_count
+                elif org == 'GTS':
+                    ws[f'F{row}'] = height_count
+                    ws[f'G{row}'] = low_count
+                elif org == 'GNS':
+                    ws[f'H{row}'] = height_count
+                    ws[f'I{row}'] = low_count
+                elif org =='ADM':
+                    ws[f'N{row}'] = height_count
+                    ws[f'O{row}'] = low_count
+
+    min_rows_count = 4
+    if len(users) > 4:
+        min_rows_count += len(users)
+
+    row_for_results = start_row + 1 + min_rows_count   # строка для подсчета итогов всех строк
+        # Суммирование по столбцам
+    for col in range(4, 21):    # 4, 21 столбцы с количеством отчетов
         col_letter = get_column_letter(col)
         formula = f"=SUM({col_letter}{start_row + 1}:{col_letter}{start_row + len(users)})"
         ws.cell(row=row_for_results, column=col).value = formula
