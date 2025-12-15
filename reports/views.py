@@ -161,60 +161,59 @@ def get_reports(request):
     reports = Report.objects.values('user__username', 'organization__name_en', 'risk_assessment').annotate(count=Count('id'))
 
     context = {}
-    if request.GET:
-        start = request.GET.get('start')
-        end = request.GET.get('end')
+    start = request.GET.get('start')
+    end = request.GET.get('end')
 
-        if not (start and end):
-            agg = Report.objects.filter(created_date__isnull=False).aggregate(
-                    min_date=Min('created_date'),
-                    max_date=Max('created_date')
-                )
-            if not agg['min_date']:
-                return JsonResponse({})
-
-            start = agg['min_date'].date().isoformat()
-            end = agg['max_date'].date().isoformat()
-
-        try:
-            sd_date = datetime.strptime(start, "%Y-%m-%d").date()
-            ed_date = datetime.strptime(end, "%Y-%m-%d").date()
-        except ValueError:
-            context.update({'labels': [], 'data': [], 'start': start, 'end': end})
+    if not (start and end):
+        agg = Report.objects.filter(created_date__isnull=False).aggregate(
+                min_date=Min('created_date'),
+                max_date=Max('created_date')
+            )
+        if not agg['min_date']:
             return JsonResponse({})
 
-        # Границы периода: с полуночи start до конца дня end
-        sd = datetime.combine(sd_date, time.min)
-        ed = datetime.combine(ed_date, time.max)
+        start = agg['min_date'].date().isoformat()
+        end = agg['max_date'].date().isoformat()
 
-        reports = reports.filter(Q(created_date__isnull=False) &
-                                 Q(created_date__lte=ed) &
-                                 Q(created_date__gte=sd))
+    try:
+        sd_date = datetime.strptime(start, "%Y-%m-%d").date()
+        ed_date = datetime.strptime(end, "%Y-%m-%d").date()
+    except ValueError:
+        context.update({'labels': [], 'data': [], 'start': start, 'end': end})
+        return JsonResponse({})
 
-        reports_dicts = {}
+    # Границы периода: с полуночи start до конца дня end
+    sd = datetime.combine(sd_date, time.min)
+    ed = datetime.combine(ed_date, time.max)
 
-        for report in reports:
-            reports_dicts[report['user__username']] = reports_dicts.get(report['user__username'], {})
-            reports_dicts[report['user__username']][report['organization__name_en']] = reports_dicts[report['user__username']].get(report['organization__name_en'], {})
-            reports_dicts[report['user__username']][report['organization__name_en']][report['risk_assessment']] = reports_dicts[report['user__username']][report['organization__name_en']].get(report['risk_assessment'], {})
-            reports_dicts[report['user__username']][report['organization__name_en']][report['risk_assessment']] = report['count']
+    reports = reports.filter(Q(created_date__isnull=False) &
+                             Q(created_date__lte=ed) &
+                             Q(created_date__gte=sd))
+
+    reports_dicts = {}
+
+    for report in reports:
+        reports_dicts[report['user__username']] = reports_dicts.get(report['user__username'], {})
+        reports_dicts[report['user__username']][report['organization__name_en']] = reports_dicts[report['user__username']].get(report['organization__name_en'], {})
+        reports_dicts[report['user__username']][report['organization__name_en']][report['risk_assessment']] = reports_dicts[report['user__username']][report['organization__name_en']].get(report['risk_assessment'], {})
+        reports_dicts[report['user__username']][report['organization__name_en']][report['risk_assessment']] = report['count']
 
 
-        output = create_stat_report(reports_dicts, start=sd, end=ed)
-        # Кодируем файл в base64
-        excel_file_base64 = base64.b64encode(output.getvalue()).decode('utf-8')
+    output = create_stat_report(reports_dicts, start=sd, end=ed)
+    # Кодируем файл в base64
+    excel_file_base64 = base64.b64encode(output.getvalue()).decode('utf-8')
 
-        # Формируем JSON-ответ
-        response_data = {
-            "reports": reports_dicts,
-            "file": {
-                "filename": "report_kcokb.xlsx",
-                "content": excel_file_base64,
-                "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            }
+    # Формируем JSON-ответ
+    response_data = {
+        "reports": reports_dicts,
+        "file": {
+            "filename": "report_kcokb.xlsx",
+            "content": excel_file_base64,
+            "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         }
+    }
 
-        return JsonResponse(response_data)
+    return JsonResponse(response_data)
 
 
 def analytics_view(request):
@@ -361,6 +360,7 @@ def get_countries_attacks(request):
         'end': end,
     })
     return JsonResponse(contex)
+
 
 def get_static_reports_data(request):
     contex = {}
