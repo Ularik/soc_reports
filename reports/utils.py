@@ -65,7 +65,7 @@ def create_stat_report(data, start, end):
 
     min_rows_count = 4
     if len(users) > 4:
-        min_rows_count += len(users)
+        min_rows_count = len(users) - min_rows_count
 
     row_for_results = start_row + 1 + min_rows_count   # строка для подсчета итогов всех строк
         # Суммирование по столбцам
