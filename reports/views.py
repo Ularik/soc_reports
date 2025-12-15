@@ -160,35 +160,11 @@ def get_reports(request):
 
     reports = Report.objects.values('user__username', 'organization__name_en', 'risk_assessment').annotate(count=Count('id'))
 
-    context = {}
-    start = request.GET.get('start')
-    end = request.GET.get('end')
+    start = datetime.fromisoformat(request.GET.get('start'))
+    end = datetime.fromisoformat(request.GET.get('end'))
 
-    if not (start and end):
-        agg = Report.objects.filter(created_date__isnull=False).aggregate(
-                min_date=Min('created_date'),
-                max_date=Max('created_date')
-            )
-        if not agg['min_date']:
-            return JsonResponse({})
 
-        start = agg['min_date'].date().isoformat()
-        end = agg['max_date'].date().isoformat()
-
-    try:
-        sd_date = datetime.strptime(start, "%Y-%m-%d").date()
-        ed_date = datetime.strptime(end, "%Y-%m-%d").date()
-    except ValueError:
-        context.update({'labels': [], 'data': [], 'start': start, 'end': end})
-        return JsonResponse({})
-
-    # Границы периода: с полуночи start до конца дня end
-    sd = datetime.combine(sd_date, time.min)
-    ed = datetime.combine(ed_date, time.max)
-
-    reports = reports.filter(Q(created_date__isnull=False) &
-                             Q(created_date__lte=ed) &
-                             Q(created_date__gte=sd))
+    reports = reports.filter(detection_date__range=(start, end))
 
     reports_dicts = {}
 
@@ -199,7 +175,7 @@ def get_reports(request):
         reports_dicts[report['user__username']][report['organization__name_en']][report['risk_assessment']] = report['count']
 
 
-    output = create_stat_report(reports_dicts, start=sd, end=ed)
+    output = create_stat_report(reports_dicts, start=start, end=end)
     # Кодируем файл в base64
     excel_file_base64 = base64.b64encode(output.getvalue()).decode('utf-8')
 

@@ -4,8 +4,10 @@ document.querySelector('#static-report-form').addEventListener('submit', async (
     const form = e.target;
     const params = new URLSearchParams(new FormData(form)).toString();
     const url = `${window.location.origin}/analytics-static-reports/`;
+    //Добавляем параметры к URL через '?'
+    const fullUrl = `${url}?${params}`;
 
-    const response = await fetch(url);
+    const response = await fetch(fullUrl);
 
     if (!response.ok) throw new Error("Ошибка при получении данных");
 
