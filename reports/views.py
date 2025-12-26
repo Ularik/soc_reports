@@ -240,10 +240,11 @@ def get_attack_types_for_chart(request):
         contex.update({'labels': [], 'data': []})
         return JsonResponse(contex)
 
-    total = filtered.count() or 1
-
     if department:
         filtered = filtered.filter(organization=department)
+
+    total = filtered.count() or 1
+
     # Группировка
     qs = (
         filtered
@@ -323,10 +324,11 @@ def get_countries_attacks(request):
         contex.update({'labels': [], 'data': []})
         return JsonResponse(contex)
 
+    if department:
+        filtered = filtered.filter(Q(organization=department) | Q(country__isnull=False))
+
     total = filtered.count() or 1
 
-    if department:
-        filtered = filtered.filter(organization=department)
     # Группировка
     qs = (
         filtered
