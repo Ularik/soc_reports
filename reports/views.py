@@ -285,10 +285,11 @@ def get_risk_assessments_reports(request):
         contex.update({'labels': [], 'data': []})
         return JsonResponse(contex)
 
-    total = filtered.count() or 1
-
     if department:
         filtered = filtered.filter(organization=department)
+
+    total = filtered.count() or 1
+
     # Группировка
     qs = (
         filtered
