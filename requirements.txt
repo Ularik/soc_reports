@@ -8,3 +8,4 @@ djangorestframework
 six
 psycopg2-binary
 openpyxl
+redis
