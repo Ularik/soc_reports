@@ -6,40 +6,48 @@
 {% block content %}
   <div class="analitick-block">
     <div class="analitickOne">
-      <h1>Аналитика по типам атак (в %)</h1>
-      <form id="reports_filter" method="get" class="mb-4">
-        <label>С:</label>
-        <input type="date" name="start" value="{{ start }}">
-        <label>По:</label>
-        <input type="date" name="end"   value="{{ end }}">
-        <button type="submit" class="btn btn-primary">Показать</button>
-      </form>
-
-      <div class="analytics-charts">
-        <div style="width:30%;">
-          <div>
-            <canvas id="attack-methods-chart"></canvas>
+      <div class="analytics-general" id="analytics-general">
+        <h1>Аналитика по типам атак (в %)</h1>
+        <form id="reports_filter" method="get" class="mb-4">
+          <div class="w-25 mb-3">
+            <label>Министерство:</label>
+            <select name="department" class="form-select" aria-label="Default select example" id="counrties-for-select">
+              <option value="all" selected>Все министерства</option>
+            </select>
           </div>
-          <!-- Легенда по цветам -->
-          <ul id="legend" class="list-unstyled mt-3"></ul>
-        </div>
+          <label>С:</label>
+          <input type="date" name="start" value="{{ start }}">
+          <label>По:</label>
+          <input type="date" name="end"   value="{{ end }}">
+          <button type="submit" class="btn btn-primary">Показать</button>
+        </form>
 
-        <div style="width:30%;">
-          <div>
-            <canvas id="attack-risc-chart"></canvas>
+        <div class="analytics-charts">
+          <div style="width:30%;">
+            <div>
+              <canvas id="attack-methods-chart"></canvas>
+            </div>
+            <!-- Легенда по цветам -->
+            <ul id="legend" class="list-unstyled mt-3"></ul>
           </div>
-          <!-- Легенда по цветам -->
-          <ul id="legend-risc" class="list-unstyled mt-3"></ul>
-        </div>
 
-        <div style="width:30%;">
-          <div>
-            <canvas id="countries-chart"></canvas>
+          <div style="width:30%;">
+            <div>
+              <canvas id="attack-risc-chart"></canvas>
+            </div>
+            <!-- Легенда по цветам -->
+            <ul id="legend-risc" class="list-unstyled mt-3"></ul>
           </div>
-          <!-- Легенда по цветам -->
-          <ul id="legend-countries" class="list-unstyled mt-3"></ul>
-        </div>
 
+          <div style="width:30%;">
+            <div>
+              <canvas id="countries-chart"></canvas>
+            </div>
+            <!-- Легенда по цветам -->
+            <ul id="legend-countries" class="list-unstyled mt-3"></ul>
+          </div>
+
+        </div>
       </div>
 
     </div>

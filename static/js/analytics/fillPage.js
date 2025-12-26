@@ -10,8 +10,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         '#46BFBD', '#FDB45C'
     ].slice(0, 10);
 
-    const getdata = async (url, start=null, end=null) => {
+    // Заполняем поле select Министерствами
+    const getDepartments = async () => {
+        url = `${window.location.origin}/get_departments/`;
+        const selectInput = document.querySelector('#counrties-for-select');
+        const result = await fetch(url);
+        const departments = await result.json();
+        departments.forEach(name_array => {
+            const [name_en, name_ru, id] = name_array;
+            const name = name_ru ? `${name_en} ${name_ru}` : name_en;
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = name;
+
+            selectInput.appendChild(option);
+        });
+    };
+    getDepartments();
+
+    const getdata = async (url, department=null, start=null, end=null) => {
         const urlObject = new URL(url);
+        if (department) urlObject.searchParams.append('department', department);
+
         if (start && end) {
             urlObject.searchParams.append("start", start);
             urlObject.searchParams.append("end", end);
@@ -31,7 +51,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               labels: chartLabels,
               datasets: [{
                 data: chartData,
-                backgroundColor: backgroundColors,
+                backgroundColor: backgroundColors.slice(0, chartLabels.length),
                 label: 'Процент от общего числа атак'
               }]
         },
@@ -71,8 +91,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const riscCanvas = document.getElementById('attack-risc-chart');
     const riscLegend = document.getElementById('legend-risc');
 
-    const updateMethodsChart = async (start=null, end=null) => {
-        const data = await getdata(urlMethods, start, end);
+    const updateMethodsChart = async (department, start=null, end=null) => {
+        const data = await getdata(urlMethods, department, start, end);
         const chartLabels = data.labels;
         const chartData = data.data;
         await fillLabels(legendContainer, chartLabels, chartData);
@@ -86,8 +106,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         methodChart = await fillChart(methodCanvas, chartLabels, chartData);
     };
 
-    const updateRiscChar = async (start=null, end=null) => {
-        const data = await getdata(urlRisc, start, end);
+    const updateRiscChar = async (department, start=null, end=null) => {
+        const data = await getdata(urlRisc, department, start, end);
         const chartLabels = data.labels;
         const chartData = data.data;
         await fillLabels(riscLegend, chartLabels, chartData);
@@ -101,12 +121,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         riscChart = await fillChart(riscCanvas, chartLabels, chartData);
     }
 
+    // Страны
     let countryChart = null;
     const countryCanvas = document.getElementById('countries-chart');
     const countryLegend = document.getElementById('legend-countries');
 
-    const updateCountryCharts = async (start=null, end=null) => {
-        const data = await getdata(urlCountry, start, end);
+    const updateCountryCharts = async (department, start=null, end=null) => {
+        const data = await getdata(urlCountry, department, start, end);
         const chartLabels = data.labels;
         const chartData = data.data;
         await fillLabels(countryLegend, chartLabels, chartData);
@@ -121,18 +142,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
 
-    const updatePage = async (start=null, end=null) => {
-        await updateMethodsChart(start, end);
-        await updateRiscChar(start, end);
-        await updateCountryCharts(start, end)
+    const updatePage = async (department=null, start=null, end=null) => {
+        await updateMethodsChart(department, start, end);
+        await updateRiscChar(department, start, end);
+        await updateCountryCharts(department, start, end)
     }
     await updatePage();
 
     const form = document.querySelector('#reports_filter');
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const department = form.elements.department.value === 'all' ? null : form.elements.department.value;
         const start = form.elements.start.value;
         const end = form.elements.end.value;
-        await updatePage(start, end);
+        await updatePage(department, start, end);
     });
 });

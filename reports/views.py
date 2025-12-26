@@ -26,6 +26,7 @@ import base64
 from django.contrib.auth import get_user_model
 import requests
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 
 
 User = get_user_model()
@@ -192,34 +193,57 @@ def get_reports(request):
     return JsonResponse(response_data)
 
 
+def get_departments(request):
+    qs = list(Organization.objects.values_list('name_en', 'name_ru', 'pk'))
+    return JsonResponse(qs, safe=False)
+
+
 def analytics_view(request):
     return render(request, 'reports/analytics.html', {})
 
 
+def get_filtered_qs(start, end):
+    key = 'all_reports'
+    if start and end:
+        key = f'{start}+{end}'
+
+    filter_qs = cache.get(key)
+
+    if not filter_qs:
+        print('Кэш не сработал')
+        if not (start and end):
+            bounds = Report.objects.aggregate(
+                min_date=Min('detection_date'),
+                max_date=Max('detection_date')
+            )
+            if not bounds['min_date']:
+                return False
+
+            start = bounds['min_date']
+            end = bounds['max_date']
+
+        filter_qs = Report.objects.filter(
+            detection_date__range=(start, end)
+        )
+        cache.set(key, filter_qs, 5)
+    return filter_qs
+
+
 def get_attack_types_for_chart(request):
     contex = {}
+    department = request.GET.get('department')
     start = request.GET.get('start')
     end = request.GET.get('end')
 
-    # Получаем границы из БД, если их нет
-    if not (start and end):
-        bounds = Report.objects.aggregate(
-            min_date=Min('detection_date'),
-            max_date=Max('detection_date')
-        )
-        if not bounds['min_date']:
-            contex.update({'labels': [], 'data': []})
-            return JsonResponse(contex)
-
-        start = bounds['min_date']
-        end = bounds['max_date']
-
-    filtered = Report.objects.filter(
-        detection_date__range=(start, end)
-    )
+    filtered = get_filtered_qs(start, end)
+    if not filtered:
+        contex.update({'labels': [], 'data': []})
+        return JsonResponse(contex)
 
     total = filtered.count() or 1
 
+    if department:
+        filtered = filtered.filter(organization=department)
     # Группировка
     qs = (
         filtered
@@ -251,28 +275,20 @@ def get_attack_types_for_chart(request):
 
 def get_risk_assessments_reports(request):
     contex = {}
+    department = request.GET.get('department')
     start = request.GET.get('start')
     end = request.GET.get('end')
 
     # Получаем границы из БД, если их нет
-    if not (start and end):
-        bounds = Report.objects.aggregate(
-            min_date=Min('detection_date'),
-            max_date=Max('detection_date')
-        )
-        if not bounds['min_date']:
-            contex.update({'labels': [], 'data': []})
-            return JsonResponse(contex)
-
-        start = bounds['min_date']
-        end = bounds['max_date']
-
-    filtered = Report.objects.filter(
-        detection_date__range=(start, end)
-    )
+    filtered = get_filtered_qs(start, end)
+    if not filtered:
+        contex.update({'labels': [], 'data': []})
+        return JsonResponse(contex)
 
     total = filtered.count() or 1
 
+    if department:
+        filtered = filtered.filter(organization=department)
     # Группировка
     qs = (
         filtered
@@ -295,29 +311,21 @@ def get_risk_assessments_reports(request):
 
 def get_countries_attacks(request):
     contex = {}
+    department = request.GET.get('department')
     start = request.GET.get('start')
     end = request.GET.get('end')
 
     # Получаем границы из БД, если их нет
-    if not (start and end):
-        bounds = Report.objects.aggregate(
-            min_date=Min('detection_date'),
-            max_date=Max('detection_date')
-        )
-        if not bounds['min_date']:
-            contex.update({'labels': [], 'data': []})
-            return JsonResponse(contex)
+    filtered = get_filtered_qs(start, end)
 
-        start = bounds['min_date']
-        end = bounds['max_date']
-
-    filtered = Report.objects.filter(
-        detection_date__range=(start, end),
-        country__isnull=False
-    )
+    if not filtered:
+        contex.update({'labels': [], 'data': []})
+        return JsonResponse(contex)
 
     total = filtered.count() or 1
 
+    if department:
+        filtered = filtered.filter(organization=department)
     # Группировка
     qs = (
         filtered
@@ -344,41 +352,17 @@ def get_static_reports_data(request):
     end = request.GET.get('end')
 
     # Если даты не заданы, берём весь диапазон из БД
-    if not (start and end):
-        agg = (Report.objects.filter(detection_date__isnull=False))
-        if not agg:
-            JsonResponse(contex)
-
-        agg = agg.aggregate(
-            min_date=Min('detection_date'),
-            max_date=Max('detection_date')
-        )
-
-        start = agg['min_date'].date().isoformat()
-        end = agg['max_date'].date().isoformat()
-
-        # Преобразуем строки в даты
-    try:
-        sd_date = datetime.strptime(start, "%Y-%m-%d").date()
-        ed_date = datetime.strptime(end, "%Y-%m-%d").date()
-    except ValueError:
-        contex.update({'labels': [], 'data': [], 'start': start, 'end': end})
+    filtered = get_filtered_qs(start, end)
+    if not filtered:
+        contex.update({'labels': [], 'data': []})
         return JsonResponse(contex)
 
-        # Границы периода: с полуночи start до конца дня end
-    sd = datetime.combine(sd_date, time.min)
-    ed = datetime.combine(ed_date, time.max)
-
     # Общее число отчётов в период
-    total = Report.objects.filter(
-        detection_date__gte=sd,
-        detection_date__lte=ed
-    ).count() or 1
+    total = filtered.count() or 1
 
     # Группировка по типу атаки
     qs = (
         Report.objects
-        .filter(detection_date__gte=sd, detection_date__lte=ed)
         .values('attack_type')
         .annotate(count=Count('id'))
         .order_by('-count')
