@@ -127,8 +127,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const countryLegend = document.getElementById('legend-countries');
 
     const updateCountryCharts = async (department, start=null, end=null) => {
+        const regionNames = new Intl.DisplayNames(['ru'], { type: 'region' });
+
         const data = await getdata(urlCountry, department, start, end);
-        const chartLabels = data.labels;
+        const chartLabels = data.labels.map(code => {
+            try {
+                return regionNames.of(code.toUpperCase());
+            } catch {
+                if (code) return code.toUpperCase();
+                return '';
+            }
+        });
+
         const chartData = data.data;
         await fillLabels(countryLegend, chartLabels, chartData);
 
