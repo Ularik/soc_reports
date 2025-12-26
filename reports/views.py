@@ -157,13 +157,12 @@ class ReportDownloadView(View):
         return resp
 
 
-def get_reports(request):
+def get_static_analytic_file(request):
 
     reports = Report.objects.values('user__username', 'organization__name_en', 'risk_assessment').annotate(count=Count('id'))
 
     start = datetime.fromisoformat(request.GET.get('start'))
     end = datetime.fromisoformat(request.GET.get('end'))
-
 
     reports = reports.filter(detection_date__range=(start, end))
 
@@ -339,54 +338,6 @@ def get_countries_attacks(request):
 
     labels = [item['country'] for item in qs]
     data = [round(item['count'] / total * 100, 2) for item in qs]
-
-    contex.update({
-        'labels': labels,
-        'data': data,
-        'start': start,
-        'end': end,
-    })
-    return JsonResponse(contex)
-
-
-def get_static_reports_data(request):
-    contex = {}
-    start = request.GET.get('start')
-    end = request.GET.get('end')
-
-    # Если даты не заданы, берём весь диапазон из БД
-    filtered = get_filtered_qs(start, end)
-    if not filtered:
-        contex.update({'labels': [], 'data': []})
-        return JsonResponse(contex)
-
-    # Общее число отчётов в период
-    total = filtered.count() or 1
-
-    # Группировка по типу атаки
-    qs = (
-        Report.objects
-        .values('attack_type')
-        .annotate(count=Count('id'))
-        .order_by('-count')
-    )
-
-    # Группируем прочие категории
-    MAX_SLICES = 10
-    labels = []
-    data = []
-    other_count = 0
-
-    for idx, item in enumerate(qs):
-        if idx < MAX_SLICES:
-            labels.append(item['attack_type'])
-            data.append(round(item['count'] / total * 100, 2))
-        else:
-            other_count += item['count']
-
-    if other_count:
-        labels.append('Прочие')
-        data.append(round(other_count / total * 100, 2))
 
     contex.update({
         'labels': labels,

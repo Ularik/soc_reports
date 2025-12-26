@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.log(code.toUpperCase())
                 return regionNames.of(code.toUpperCase());
             } catch {
-                return '';
+                return code.toUpperCase();
             }
         });
 

@@ -26,9 +26,9 @@ def create_stat_report(data, start, end):
 
     for i, usr in enumerate(users, 1):
         row = start_row + i    # номер строки
+
         if i > 4:
             ws.insert_rows(row)
-
             # Копируем стиль со строки выше
             for col in range(1, ws.max_column + 1):
                 col_letter = get_column_letter(col)

@@ -32,7 +32,6 @@ document.querySelector('#static-report-form').addEventListener('submit', async (
     // заполняем таблицу на странице
     const tbody = document.getElementById("reportBody");
 
-    console.log(reports);
     Object.entries(reports).forEach(([surname, depts], index) => {
       const tr = document.createElement("tr");
 
@@ -54,7 +53,6 @@ document.querySelector('#static-report-form').addEventListener('submit', async (
       };
 
       Object.keys(order).forEach(depID => {
-        console.log(depID, depts[depID]);
         const h = depts[depID]?.Высокая ?? 0;
         let m = depts[depID]?.Средняя ?? 0;
         m += depts[depID]?.Низкая ?? 0;
