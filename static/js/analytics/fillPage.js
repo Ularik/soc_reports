@@ -132,10 +132,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const data = await getdata(urlCountry, department, start, end);
         const chartLabels = data.labels.map(code => {
             try {
-                console.log(code.toUpperCase())
                 return regionNames.of(code.toUpperCase());
             } catch {
-                return code.toUpperCase();
+                return code ? code.toUpperCase() : 'не указана';
             }
         });
 
