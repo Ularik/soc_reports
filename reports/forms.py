@@ -53,12 +53,10 @@ class ReportsForm(forms.ModelForm):
         cleaned_data = super().clean()
         raw_value = self.data.get('pattern')
         pattern_obj = None
-        print(raw_value)
 
         try:
             pattern_obj = Pattern.objects.filter(pk=raw_value).first()
         except:
-            print('pattern_obj: ', pattern_obj)
             # Если это ID существующего Pattern
             pattern_obj = Pattern.objects.create(
                 name=raw_value,

@@ -79,7 +79,6 @@ def report_create_view(request):
 class ReportDownloadView(View):
     def get(self, request, pk):
         report = get_object_or_404(Report, pk=pk)
-
         buffer = BytesIO()
 
         try:
@@ -105,7 +104,7 @@ class ReportDownloadView(View):
             [Paragraph("Источник угрозы", cell), Paragraph(report.source_ip, cell)],
 
             [Paragraph("Адрес назначения", cell), Paragraph(report.destination_ip, cell)],
-            [Paragraph("Средство обнаружения", cell), Paragraph('WAF', cell)],
+            [Paragraph("Средство обнаружения", cell), Paragraph(report.detection_tool, cell)],
             [Paragraph("Краткое описание", cell), Paragraph(report.short_description, cell)],
             [Paragraph("Методы атаки", cell), Paragraph(report.methods, cell)],
             [Paragraph("Протоколы и порты", cell), Paragraph(report.protocols_ports, cell)],
