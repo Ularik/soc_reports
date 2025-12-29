@@ -256,7 +256,7 @@ def get_attack_types_for_chart(request):
     others = list(qs[max_attack_types:])
 
     labels = [item['attack_type'] for item in top]
-    data = [round(item['count'] / total * 100, 2) for item in top]
+    data = [[round(item['count'] / total * 100, 2), item['count']] for item in qs]
 
     if others:
         other_sum = sum(item['count'] for item in others)
@@ -298,7 +298,7 @@ def get_risk_assessments_reports(request):
     )
 
     labels = [item['risk_assessment'] for item in qs]
-    data = [round(item['count'] / total * 100, 2) for item in qs]
+    data = [[round(item['count'] / total * 100, 2), item['count']] for item in qs]
 
     contex.update({
         'labels': labels,
@@ -336,7 +336,7 @@ def get_countries_attacks(request):
     )[:10]
 
     labels = [item['country'] for item in qs]
-    data = [round(item['count'] / total * 100, 2) for item in qs]
+    data = [[round(item['count'] / total * 100, 2), item['count']] for item in qs]
 
     contex.update({
         'labels': labels,
