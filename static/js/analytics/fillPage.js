@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const li = document.createElement('li');
             li.innerHTML =
               `<span style="display:inline-block;width:12px;height:12px;background-color:${backgroundColors[i]};margin-right:8px;"></span>` +
-              `${label.slice(0, 4)} — ${chartData[i]}%`;
+              `${label} — ${chartData[i]}%`;
             legendContainer.appendChild(li);
         });
     };
