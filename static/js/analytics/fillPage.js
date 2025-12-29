@@ -150,11 +150,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         countryChart = await fillChart(countryCanvas, chartLabels, chartData);
     };
 
+    const getIpCount = async (department, start=null, end=null) => {
+        const ulr = `${window.location.origin}/analytics-ip-counts/`;
+        const data = await getdata(ulr, department, start, end);
+        const ipList = data.data;
+        const table = document.querySelector('#ip-count-table');
+        const tableBody = table.querySelector('tbody');
+        ipList.forEach(obj => {
+            const tr = document.createElement('tr');
+            const ipTd = document.createElement('td');
+            const countTd = document.createElement('td');
+            ipTd.innerText = obj.source_ip;
+            countTd.innerText = obj.count;
+            tr.appendChild(ipTd);
+            tr.appendChild(countTd);
+            tableBody.appendChild(tr);
+        })
+    };
+
 
     const updatePage = async (department=null, start=null, end=null) => {
         await updateMethodsChart(department, start, end);
         await updateRiscChar(department, start, end);
-        await updateCountryCharts(department, start, end)
+        await updateCountryCharts(department, start, end);
+        await getIpCount(department, start, end);
     }
     await updatePage();
 

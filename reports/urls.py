@@ -1,8 +1,9 @@
 from django.urls import path
 from django.views.generic import RedirectView
 
-from .views import report_create_view, get_attack_types_for_chart, ReportListView, ReportDetailView, MonthlyReportView, \
-    export_monthly_reports, ReportDownloadView, get_static_analytic_file, analytics_view, get_risk_assessments_reports, get_countries_attacks, get_departments
+from .views import (report_create_view, get_attack_types_for_chart, ReportListView, ReportDetailView, MonthlyReportView, \
+    export_monthly_reports, ReportDownloadView, get_static_analytic_file, analytics_view, get_risk_assessments_reports,
+                    get_countries_attacks, get_departments, get_ip_count)
 
 app_name = 'reports'   # опционально, но удобно для именованных маршрутов
 
@@ -16,6 +17,7 @@ urlpatterns = [
     path('analytics-risc-assessments/', get_risk_assessments_reports, name='attack_risc'),
     path('analytics-country-attacks/', get_countries_attacks, name='countries_attacks'),
     path('analytics-static-reports/', get_static_analytic_file, name='static_reports'),
+    path('analytics-ip-counts/', get_ip_count, name='get_ip_count'),
     path('monthly/', MonthlyReportView.as_view(), name='report_monthly'),
     path('monthly/export/', export_monthly_reports, name='report_monthly_export'),
     path('download/<int:pk>/', ReportDownloadView.as_view(), name='report_pdf'),

@@ -347,6 +347,29 @@ def get_countries_attacks(request):
     return JsonResponse(contex)
 
 
+def get_ip_count(request):
+    contex = {}
+    department = request.GET.get('department')
+    start = request.GET.get('start')
+    end = request.GET.get('end')
+
+    # Получаем границы из БД, если их нет
+    filtered = get_filtered_qs(start, end)
+
+    if department:
+        filtered = filtered.filter(organization=department)
+
+    ip_lists = filtered.values('source_ip').annotate(count=Count('id'))
+
+    total = ip_lists.count() or 1
+    print(ip_lists, total)
+    contex.update({
+        'data': list(ip_lists),
+        'start': start,
+        'end': end,
+    })
+    return JsonResponse(contex)
+
 class ReportListView(ListView):
     model = Report
     template_name = 'reports/report_list.html'
