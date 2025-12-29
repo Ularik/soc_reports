@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const getIpCount = async (department, start=null, end=null) => {
         const ulr = `${window.location.origin}/analytics-ip-counts/`;
         const data = await getdata(ulr, department, start, end);
-        const ipList = data.data;
+        const ipObjects = data.data;
         const total = document.querySelector('#ip-count');
         total.innerText = data.total;
 
@@ -162,11 +162,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         tableBody.innerHTML = '';
 
         const fragment = document.createDocumentFragment();
-        ipList.forEach(obj => {
+        const regionNames = new Intl.DisplayNames(['ru'], { type: 'region' });
+        const ipList =  Object.keys(ipObjects);
+        for (const ip of ipList) {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${obj.source_ip}</td><td>${obj.count}</td>`;
+            let column = ``;
+            ipObjects[ip].forEach(countryCount => {
+                let countryName = '';
+                const code = countryCount[0];
+                try {
+                    countryName = regionNames.of(code.toUpperCase());
+                } catch {
+                    countryName = code ? code.toUpperCase() : 'не указана';
+                }
+
+                column += `<p>${countryName} ${countryCount[1]}</p>`
+            });
+            tr.innerHTML = `<td>${ip}</td><td>${column}</td>`
             fragment.appendChild(tr);
-        });
+        }
+
         tableBody.appendChild(fragment); // Обновляем DOM всего один раз
     };
 

@@ -222,7 +222,7 @@ def get_filtered_qs(start, end):
 
         filter_qs = Report.objects.filter(
             detection_date__range=(start, end)
-        )
+        ).exclude(Q(country__isnull=True) | Q(country=""))
         cache.set(key, filter_qs, 5)
     return filter_qs
 
@@ -359,16 +359,21 @@ def get_ip_count(request):
     if department:
         filtered = filtered.filter(organization=department)
 
-    ip_lists = filtered.values('source_ip').annotate(count=Count('id'))
+    ip_lists = filtered.values('source_ip', 'country').annotate(count=Count('id')).order_by('-count')[:10]
 
-    total = ip_lists.count() or 0
+    group_ip = {}
+    for ip_obj in ip_lists:
+        group_ip.setdefault(ip_obj['source_ip'], []).append([ip_obj['country'], ip_obj['count']])
+
+    total = len(group_ip)
     contex.update({
-        'data': list(ip_lists),
+        'data': group_ip,
         'total': total,
         'start': start,
         'end': end,
     })
     return JsonResponse(contex)
+
 
 class ReportListView(ListView):
     model = Report
