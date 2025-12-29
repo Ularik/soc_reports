@@ -156,16 +156,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         const ipList = data.data;
         const table = document.querySelector('#ip-count-table');
         const tableBody = table.querySelector('tbody');
+        tableBody.innerHTML = '';
+
+        const fragment = document.createDocumentFragment();
         ipList.forEach(obj => {
             const tr = document.createElement('tr');
-            const ipTd = document.createElement('td');
-            const countTd = document.createElement('td');
-            ipTd.innerText = obj.source_ip;
-            countTd.innerText = obj.count;
-            tr.appendChild(ipTd);
-            tr.appendChild(countTd);
-            tableBody.appendChild(tr);
-        })
+            tr.innerHTML = `<td>${obj.source_ip}</td><td>${obj.count}</td>`;
+            fragment.appendChild(tr);
+        });
+        tableBody.appendChild(fragment); // Обновляем DOM всего один раз
     };
 
 
