@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const data = await getdata(ulr, department, start, end);
         const ipList = data.data;
         const total = document.querySelector('#ip-count');
-        total.innerHtml = data.total;
+        total.innerText = data.total;
 
         const table = document.querySelector('#ip-count-table');
         const tableBody = table.querySelector('tbody');

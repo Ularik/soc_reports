@@ -361,7 +361,7 @@ def get_ip_count(request):
 
     ip_lists = filtered.values('source_ip').annotate(count=Count('id'))
 
-    total = ip_lists.count() or 1
+    total = ip_lists.count() or 0
     contex.update({
         'data': list(ip_lists),
         'total': total,
