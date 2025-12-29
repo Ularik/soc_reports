@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // график методов атак
     const fillChart = async (canvasEl, chartLabels, chartData) => {
+        const newChartData = chartData.map(dataArray => dataArray[0]);
         // Инициализация диаграммы
         const ctx = canvasEl.getContext('2d');
         const chart = methodChart = new Chart(ctx, {
@@ -50,7 +51,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             data: {
               labels: chartLabels,
               datasets: [{
-                data: chartData,
+                data: newChartData,
                 backgroundColor: backgroundColors.slice(0, chartLabels.length),
                 label: 'Процент от общего числа атак'
               }]
