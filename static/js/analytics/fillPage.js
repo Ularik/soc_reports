@@ -154,6 +154,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const ulr = `${window.location.origin}/analytics-ip-counts/`;
         const data = await getdata(ulr, department, start, end);
         const ipList = data.data;
+        const total = document.querySelector('#ip-count');
+        total.innerHtml = data.total;
+
         const table = document.querySelector('#ip-count-table');
         const tableBody = table.querySelector('tbody');
         tableBody.innerHTML = '';
