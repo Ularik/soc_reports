@@ -359,10 +359,10 @@ def get_ip_count(request):
     if department:
         filtered = filtered.filter(organization=department)
 
-    ip_lists = filtered.values('source_ip', 'country').annotate(count=Count('id')).order_by('-count')[:10]
+    ip_lists = filtered.values('source_ip', 'country').annotate(count=Count('id')).order_by('-count')
 
     group_ip = {}
-    for ip_obj in ip_lists:
+    for ip_obj in ip_lists[:10]:
         group_ip.setdefault(ip_obj['source_ip'], []).append([ip_obj['country'], ip_obj['count']])
 
     total = len(group_ip)
