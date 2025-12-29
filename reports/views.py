@@ -365,7 +365,7 @@ def get_ip_count(request):
     for ip_obj in ip_lists[:10]:
         group_ip.setdefault(ip_obj['source_ip'], []).append([ip_obj['country'], ip_obj['count']])
 
-    total = len(group_ip)
+    total = filtered.values('source_ip').annotate(count=Count('id')).count()
     contex.update({
         'data': group_ip,
         'total': total,
