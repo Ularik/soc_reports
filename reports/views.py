@@ -27,6 +27,8 @@ from django.contrib.auth import get_user_model
 import requests
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
+from django.utils import timezone
+from datetime import time
 
 
 User = get_user_model()
@@ -200,31 +202,23 @@ def analytics_view(request):
     return render(request, 'reports/analytics.html', {})
 
 
-def get_filtered_qs(start, end):
-    key = 'all_reports'
-    if start and end:
-        key = f'{start}+{end}'
+def get_filtered_qs(start=None, end=None):
+    today = timezone.localdate()
 
-    filter_qs = cache.get(key)
+    # если не переданы даты — берем сегодняшний день
+    if not start:
+        start = timezone.make_aware(
+            timezone.datetime.combine(today, time.min)
+        )
 
-    if not filter_qs:
-        print('Кэш не сработал')
-        if not (start and end):
-            bounds = Report.objects.aggregate(
-                min_date=Min('detection_date'),
-                max_date=Max('detection_date')
-            )
-            if not bounds['min_date']:
-                return False
+    if not end:
+        end = timezone.make_aware(
+            timezone.datetime.combine(today, time.max)
+        )
 
-            start = bounds['min_date']
-            end = bounds['max_date']
-
-        filter_qs = Report.objects.filter(
-            detection_date__range=(start, end)
-        ).exclude(Q(country__isnull=True) | Q(country=""))
-        cache.set(key, filter_qs, 5)
-    return filter_qs
+    return Report.objects.filter(
+        detection_date__range=(start, end)
+    )
 
 
 def get_attack_types_for_chart(request):
