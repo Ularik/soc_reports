@@ -238,10 +238,9 @@ def get_attack_types_for_chart(request):
         contex.update({'labels': [], 'data': []})
         return JsonResponse(contex)
 
+
     if department:
         filtered = filtered.filter(organization=department)
-
-    total = filtered.count() or 1
 
     # Группировка
     qs = (
@@ -256,7 +255,8 @@ def get_attack_types_for_chart(request):
     others = list(qs[max_attack_types:])
 
     labels = [item['attack_type'] for item in top]
-    data = [round(item['count'] / total * 100, 2) for item in top]
+    data = [item['count'] for item in top]
+    total = sum(data)
 
     if others:
         other_sum = sum(item['count'] for item in others)
@@ -266,6 +266,7 @@ def get_attack_types_for_chart(request):
     contex.update({
         'labels': labels,
         'data': data,
+        'total': total,
         'start': start,
         'end': end,
     })
@@ -287,8 +288,6 @@ def get_risk_assessments_reports(request):
     if department:
         filtered = filtered.filter(organization=department)
 
-    total = filtered.count() or 1
-
     # Группировка
     qs = (
         filtered
@@ -298,13 +297,13 @@ def get_risk_assessments_reports(request):
     )
 
     labels = [item['risk_assessment'] for item in qs]
-    data = [round(item['count'] / total * 100, 2) for item in qs]
-    counts_ip = [round(item['count']) for item in qs]
+    data = [item['count'] for item in qs]
+    total = sum(data)
 
     contex.update({
         'labels': labels,
         'data': data,
-        'counts_ip': counts_ip,
+        'total': total,
         'start': start,
         'end': end,
     })
@@ -327,22 +326,31 @@ def get_countries_attacks(request):
     if department:
         filtered = filtered.filter(Q(organization=department) | Q(country__isnull=False))
 
-    total = filtered.count() or 1
-
     # Группировка
     qs = (
         filtered
         .values('country')
         .annotate(count=Count('id'))
         .order_by('-count')
-    )[:10]
+    )
 
-    labels = [item['country'] for item in qs]
-    data = [round(item['count'] / total * 100, 2) for item in qs]
+    max_attack_types = 10   # вытаскивам первые 10 наиболее встречающихся видов атак
+    top = list(qs[:max_attack_types])
+    others = list(qs[max_attack_types:])
+
+    labels = [item['country'] for item in top]
+    data = [item['count'] for item in top]
+    total = sum(data)
+
+    if others:
+        other_sum = sum(item['count'] for item in others)
+        labels.append('Прочие')
+        data.append(other_sum)
 
     contex.update({
         'labels': labels,
         'data': data,
+        'total': total,
         'start': start,
         'end': end,
     })

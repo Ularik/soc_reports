@@ -70,14 +70,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         return chart;
     };
 
-    const fillLabels = async (legendContainer, chartLabels, chartData) => {
+    // заполняет список под граффиком
+    const fillLabels = async (legendContainer, chartLabels, chartData, countList=null) => {
         // Генерация пользовательской легенды
         legendContainer.innerHTML = '';
         chartLabels.forEach((label, i) => {
             const li = document.createElement('li');
             li.innerHTML =
               `<span style="display:inline-block;width:12px;height:12px;background-color:${backgroundColors[i]};margin-right:8px;"></span>` +
-              `${label} — ${chartData[i]}%`;
+              `${label} — ${chartData[i]}% - ${countList[i]}`;
             legendContainer.appendChild(li);
         });
     };
@@ -94,8 +95,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const updateMethodsChart = async (department, start=null, end=null) => {
         const data = await getdata(urlMethods, department, start, end);
         const chartLabels = data.labels;
-        const chartData = data.data;
-        await fillLabels(legendContainer, chartLabels, chartData);
+        const reportCounts = data.data;
+        const total = data.total;
+        const chartData = reportCounts.map(report => Math.floor(report / total * 100));
+
+        if (chartLabels.length > reportCounts.length) {
+            reportCounts.push(Math.floor(chartData.slice(-1) / total * 100));
+        }
+
+        await fillLabels(legendContainer, chartLabels, chartData, reportCounts);
 
         if (methodChart) {
             methodChart.data.labels = chartLabels;
@@ -109,8 +117,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const updateRiscChar = async (department, start=null, end=null) => {
         const data = await getdata(urlRisc, department, start, end);
         const chartLabels = data.labels;
-        const chartData = data.data;
-        await fillLabels(riscLegend, chartLabels, chartData);
+        const reportCounts = data.data;
+        const total = data.total;
+        const chartData = reportCounts.map(report => Math.floor(report / total * 100));
+
+        if (chartLabels.length > reportCounts.length) {
+            reportCounts.push(Math.floor(chartData.slice(-1) / total * 100));
+        }
+        await fillLabels(riscLegend, chartLabels, chartData, reportCounts);
 
         if (riscChart) {
             riscChart.data.labels = chartLabels;
@@ -138,8 +152,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        const chartData = data.data;
-        await fillLabels(countryLegend, chartLabels, chartData);
+        const reportCounts = data.data;
+        const total = data.total;
+        const chartData = reportCounts.map(report => Math.floor(report / total * 100));
+
+        if (chartLabels.length > reportCounts.length) {
+            reportCounts.push(Math.floor(chartData.slice(-1) / total * 100));
+        }
+
+        await fillLabels(countryLegend, chartLabels, chartData, reportCounts);
 
         if (countryChart) {
             countryChart.data.labels = chartLabels;
