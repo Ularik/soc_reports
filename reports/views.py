@@ -318,7 +318,7 @@ def get_countries_attacks(request):
         return JsonResponse(contex)
 
     if department:
-        filtered = filtered.filter(Q(organization=department) | Q(country__isnull=False))
+        filtered = filtered.filter(organization=department)
 
     # Группировка
     qs = (
@@ -335,6 +335,7 @@ def get_countries_attacks(request):
     labels = [item['country'] for item in top]
     data = [item['count'] for item in top]
     total = sum(data)
+    print(labels, total)
 
     if others:
         other_sum = sum(item['count'] for item in others)
