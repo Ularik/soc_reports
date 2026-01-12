@@ -7,8 +7,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const backgroundColors = [
         '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
         '#9966FF', '#FF9F40', '#C9CBCF', '#4D5360',
-        '#46BFBD', '#FDB45C'
-    ].slice(0, 10);
+        '#46BFBD', '#FDB45C', '#00008B'
+    ];
 
     // Заполняем поле select Министерствами
     const getDepartments = async () => {
@@ -43,7 +43,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // график методов атак
     const fillChart = async (canvasEl, chartLabels, chartData) => {
-        console.log(chartLabels.length);
         // Инициализация диаграммы
         const ctx = canvasEl.getContext('2d');
         const chart = methodChart = new Chart(ctx, {
