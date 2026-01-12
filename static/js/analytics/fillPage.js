@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const fillChart = async (canvasEl, chartLabels, chartData) => {
         // Инициализация диаграммы
         const ctx = canvasEl.getContext('2d');
-        const chart = methodChart = new Chart(ctx, {
+        const chart = new Chart(ctx, {
             type: 'pie',
             data: {
               labels: chartLabels,
