@@ -2,7 +2,6 @@ import json
 from django.shortcuts import render
 from datetime import datetime, timedelta, time
 from io import BytesIO
-from django.db.models import Q
 from django.http import FileResponse, JsonResponse
 from django.contrib import messages
 from django.http import HttpResponse
@@ -113,7 +112,7 @@ class ReportDownloadView(View):
             [Paragraph("Критичность", cell), Paragraph(report.risk_assessment, cell)],
             [Paragraph("Потенциальные последствия", cell), Paragraph(report.potential_impact, cell)],
             [Paragraph(["Payload", "Data"][bool(report.host)], cell), Paragraph(report.data_or_payload, cell)],
-            [Paragraph("Реагирование на ицнидент", cell),
+            [Paragraph("Реагирование на инцидент", cell),
              Paragraph(report.response_actions.replace('\n', '<br/>'), cell)],
         ]
         if report.detection_tool == 'WAF' and report.host:
@@ -142,7 +141,7 @@ class ReportDownloadView(View):
             'body': json.dumps({
                 'username': report.user.username,
                 'organization': report.organization.name_ru,
-                'attack_type': report.attack_type
+                'name': report.attack_type
             })
         }
         try:
