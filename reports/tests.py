@@ -1,12 +1,12 @@
 from datetime import datetime
-from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from django.test import SimpleTestCase, override_settings
+from django.test import SimpleTestCase
 
 from .models import Report
-from .views import _build_report_pdf, _ensure_report_pdf
+from .forms import ReportsForm
+from .views import _build_report_pdf
 
 
 class ReportPdfGenerationTests(SimpleTestCase):
@@ -32,7 +32,7 @@ class ReportPdfGenerationTests(SimpleTestCase):
 
         self.assertTrue(pdf.getvalue().startswith(b'%PDF-'))
 
-    def test_report_pdf_is_persisted_and_reused(self):
+    def test_report_pdf_is_generated_without_persisting_a_file(self):
         report = Report(
             pk=123,
             detection_date=datetime(2026, 10, 22),
@@ -44,14 +44,18 @@ class ReportPdfGenerationTests(SimpleTestCase):
             organization=None,
         )
 
-        with TemporaryDirectory() as media_root:
-            with override_settings(MEDIA_ROOT=media_root):
-                with patch.object(report, 'save') as save_report:
-                    first_pdf = _ensure_report_pdf(report)
-                    file_name = report.pdf_file.name
-                    self.assertTrue(report.pdf_file.storage.exists(file_name))
+        pdf = _build_report_pdf(report)
 
-                    second_pdf = _ensure_report_pdf(report)
+        self.assertTrue(pdf.getvalue().startswith(b'%PDF-'))
+        self.assertFalse(report.pdf_file.name)
 
-        self.assertEqual(first_pdf.getvalue(), second_pdf.getvalue())
-        save_report.assert_called_once()
+    def test_missing_required_fields_are_reported_by_the_bound_form(self):
+        with patch('reports.forms.Pattern.objects.all', return_value=[]):
+            form = ReportsForm(data={})
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('detection_date', form.errors)
+        self.assertIn('source_ip', form.errors)
+        self.assertIn('destination_ip', form.errors)
+        self.assertIn('detection_tool', form.errors)
+        self.assertIn('short_description', form.errors)

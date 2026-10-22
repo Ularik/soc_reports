@@ -49,28 +49,33 @@ class ReportsForm(forms.ModelForm):
             else:
                 widget.attrs.update({'class': 'form-control form-control-sm'})
 
+    def clean_pattern(self):
+        return self.cleaned_data.get('pattern') or None
+
     def clean(self):
         cleaned_data = super().clean()
+        if self.errors:
+            return cleaned_data
+
         raw_value = self.data.get('pattern')
         pattern_obj = None
 
-        try:
-            pattern_obj = Pattern.objects.filter(pk=raw_value).first()
-        except:
-            # Если это ID существующего Pattern
-            pattern_obj = Pattern.objects.create(
-                name=raw_value,
-                attack_type=cleaned_data.get('attack_type', ''),
-                methods=cleaned_data.get('methods', ''),
-                detection_tool=cleaned_data.get('detection_tool', ''),
-                protocols_ports=cleaned_data.get('protocols_ports', ''),
-                risk_assessment=cleaned_data.get('risk_assessment', 'Низкая'),
-                potential_impact=cleaned_data.get('potential_impact', ''),
-                data_or_payload=cleaned_data.get('data_or_payload', ''),
-                response_actions=cleaned_data.get('response_actions', ''),
-            )
+        if raw_value:
+            if raw_value.isdecimal():
+                pattern_obj = Pattern.objects.filter(pk=raw_value).first()
 
+            if pattern_obj is None:
+                pattern_obj = Pattern.objects.create(
+                    name=raw_value,
+                    attack_type=cleaned_data.get('attack_type', ''),
+                    methods=cleaned_data.get('methods', ''),
+                    detection_tool=cleaned_data.get('detection_tool', ''),
+                    protocols_ports=cleaned_data.get('protocols_ports', ''),
+                    risk_assessment=cleaned_data.get('risk_assessment', 'Низкая'),
+                    potential_impact=cleaned_data.get('potential_impact', ''),
+                    data_or_payload=cleaned_data.get('data_or_payload', ''),
+                    response_actions=cleaned_data.get('response_actions', ''),
+                )
 
         cleaned_data['pattern'] = pattern_obj
         return cleaned_data
-

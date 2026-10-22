@@ -4,7 +4,6 @@ from django.shortcuts import render
 from datetime import datetime, timedelta, time
 from io import BytesIO
 from xml.sax.saxutils import escape
-from django.core.files.base import ContentFile
 from django.http import FileResponse, JsonResponse
 from django.contrib import messages
 from django.http import HttpResponse
@@ -116,21 +115,6 @@ def _build_report_pdf(report):
     return buffer
 
 
-def _ensure_report_pdf(report):
-    if report.pdf_file and report.pdf_file.storage.exists(report.pdf_file.name):
-        report.pdf_file.open('rb')
-        try:
-            return BytesIO(report.pdf_file.read())
-        finally:
-            report.pdf_file.close()
-
-    buffer = _build_report_pdf(report)
-    organization_name = report.organization.name_en if report.organization else 'report'
-    filename = get_valid_filename(f'{report.pk}_{organization_name}_{report.source_ip}.pdf')
-    report.pdf_file.save(filename, ContentFile(buffer.getvalue()), save=True)
-    buffer.seek(0)
-    return buffer
-
 @login_required(login_url='user/login/')
 def report_create_view(request):
     template_name = 'reports/report_waf_form.html'
@@ -143,19 +127,26 @@ def report_create_view(request):
             # Получаем объект формы, но не сохраняем его сразу в БД
             report = form.save(commit=False)
             report.user = request.user
-            # Сохраняем объект в БД
             report.save()
-            _ensure_report_pdf(report)
 
-            # 2) Добавляем уведомление
             messages.success(request, 'Отчет отправлен')
 
-            # 3) Редиректим на чистую форму с параметром download=<pk>
             return redirect(f"{success_url}?download={report.pk}")
 
-        messages.success(request, 'Отчет некорректен')
-
-    form = ReportsForm()
+        invalid_fields = [
+            form.fields[field_name].label or field_name
+            for field_name in form.errors
+            if field_name in form.fields
+        ]
+        if form.non_field_errors():
+            invalid_fields.append('данные формы')
+        messages.error(
+            request,
+            'Не удалось создать отчет. Проверьте поля: '
+            + ', '.join(invalid_fields),
+        )
+    else:
+        form = ReportsForm()
     # JSON для автозаполнения описания по типу атаки
     attack_types = {}
     for obj in Pattern.objects.all():
@@ -170,8 +161,11 @@ def report_create_view(request):
 class ReportDownloadView(View):
     def get(self, request, pk):
         report = get_object_or_404(Report, pk=pk)
-        buffer = _ensure_report_pdf(report)
-        name = os.path.basename(report.pdf_file.name)
+        buffer = _build_report_pdf(report)
+        organization_name = report.organization.name_en if report.organization else 'report'
+        name = get_valid_filename(
+            f'{report.pk}_{organization_name}_{report.source_ip}.pdf'
+        )
 
 
         # Отправляем PDF-отчёт в cert.gov.kg с сохранением сессии
@@ -186,7 +180,7 @@ class ReportDownloadView(View):
             # 1. Авторизация
             credentials = {
                 "username": "ular@mail.com",
-                "password": "admin",
+                "password": "alaska223A",
             }
 
             login_response = session.post(
