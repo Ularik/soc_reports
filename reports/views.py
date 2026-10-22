@@ -1,7 +1,10 @@
 import json
+import os
 from django.shortcuts import render
 from datetime import datetime, timedelta, time
 from io import BytesIO
+from xml.sax.saxutils import escape
+from django.core.files.base import ContentFile
 from django.http import FileResponse, JsonResponse
 from django.contrib import messages
 from django.http import HttpResponse
@@ -12,7 +15,7 @@ from django.views.generic import CreateView, TemplateView, ListView, DetailView
 from django.db.models import Count, Min, Max
 from docx import Document
 from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase.ttfonts import TTFont, TTFError
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -27,20 +30,106 @@ import requests
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.utils import timezone
+from django.utils.text import get_valid_filename
 from datetime import time
 
 
 User = get_user_model()
 
-# Регистрация TTF-шрифта (путь укажите свой)
-try:
-    pdfmetrics.registerFont(
-        TTFont('TimesNewRoman', r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf')
+def _report_pdf_font():
+    try:
+        pdfmetrics.getFont('TimesNewRoman')
+        return 'TimesNewRoman'
+    except KeyError:
+        pass
+
+    font_paths = (
+        r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf',
+        r'/usr/share/fonts/truetype/liberation2/LiberationSerif-Regular.ttf',
+        r'C:\Windows\Fonts\times.ttf',
+        r'C:\Windows\Fonts\arial.ttf',
     )
-except:
-    pdfmetrics.registerFont(
-        TTFont('TimesNewRoman', r'C:\Windows\Fonts\times.ttf')
+    for font_path in font_paths:
+        if os.path.isfile(font_path):
+            try:
+                pdfmetrics.registerFont(TTFont('TimesNewRoman', font_path))
+                return 'TimesNewRoman'
+            except (OSError, TTFError):
+                continue
+
+    return 'Times-Roman'
+
+
+def _report_paragraph(value, style, multiline=False):
+    text = escape(str(value or ''))
+    if multiline:
+        text = text.replace('\r\n', '\n').replace('\r', '\n').replace('\n', '<br/>')
+    return Paragraph(text, style)
+
+
+def _build_report_pdf(report):
+    buffer = BytesIO()
+    font_name = _report_pdf_font()
+
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        rightMargin=40, leftMargin=40,
+        topMargin=60, bottomMargin=40
     )
+    styles = getSampleStyleSheet()
+    styles['Title'].fontName = font_name
+    styles['Normal'].fontName = font_name
+    cell = ParagraphStyle('CellStyle', fontName=font_name, fontSize=10, leading=12, wordWrap='LTR')
+
+    elems = [_report_paragraph("Отчет по выявлению аномалий средствами SOC", styles['Title']), Spacer(1, 12)]
+    data = [
+        [_report_paragraph("Поле", cell), _report_paragraph("Значение", cell)],
+        [_report_paragraph("Дата и время", cell), _report_paragraph(report.detection_date.strftime('%Y-%m-%d'), cell)],
+        [_report_paragraph("Тип угрозы", cell), _report_paragraph(report.attack_type, cell)],
+        [_report_paragraph("Источник угрозы", cell), _report_paragraph(report.source_ip, cell)],
+        [_report_paragraph("Адрес назначения", cell), _report_paragraph(report.destination_ip, cell)],
+        [_report_paragraph("Средство обнаружения", cell), _report_paragraph(report.detection_tool, cell)],
+        [_report_paragraph("Краткое описание", cell), _report_paragraph(report.short_description, cell, multiline=True)],
+        [_report_paragraph("Методы атаки", cell), _report_paragraph(report.methods, cell)],
+        [_report_paragraph("Протоколы и порты", cell), _report_paragraph(report.protocols_ports, cell)],
+        [_report_paragraph("Критичность", cell), _report_paragraph(report.risk_assessment, cell)],
+        [_report_paragraph("Потенциальные последствия", cell), _report_paragraph(report.potential_impact, cell, multiline=True)],
+        [_report_paragraph("Payload" if report.host else "Data", cell),
+         _report_paragraph(report.data_or_payload, cell, multiline=True)],
+        [_report_paragraph("Реагирование на инцидент", cell),
+         _report_paragraph(report.response_actions, cell, multiline=True)],
+    ]
+    if report.detection_tool == 'WAF' and report.host:
+        data.insert(4, [_report_paragraph("Host", cell), _report_paragraph(report.host, cell)])
+    elif report.detection_tool == 'IPS' and report.cve:
+        data.insert(4, [_report_paragraph("CVE", cell), _report_paragraph(report.cve, cell)])
+
+    table = Table(data, colWidths=[150, 330])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f0f0f0')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+    elems.append(table)
+    doc.build(elems)
+    buffer.seek(0)
+    return buffer
+
+
+def _ensure_report_pdf(report):
+    if report.pdf_file and report.pdf_file.storage.exists(report.pdf_file.name):
+        report.pdf_file.open('rb')
+        try:
+            return BytesIO(report.pdf_file.read())
+        finally:
+            report.pdf_file.close()
+
+    buffer = _build_report_pdf(report)
+    organization_name = report.organization.name_en if report.organization else 'report'
+    filename = get_valid_filename(f'{report.pk}_{organization_name}_{report.source_ip}.pdf')
+    report.pdf_file.save(filename, ContentFile(buffer.getvalue()), save=True)
+    buffer.seek(0)
+    return buffer
 
 @login_required(login_url='user/login/')
 def report_create_view(request):
@@ -56,6 +145,7 @@ def report_create_view(request):
             report.user = request.user
             # Сохраняем объект в БД
             report.save()
+            _ensure_report_pdf(report)
 
             # 2) Добавляем уведомление
             messages.success(request, 'Отчет отправлен')
@@ -80,81 +170,81 @@ def report_create_view(request):
 class ReportDownloadView(View):
     def get(self, request, pk):
         report = get_object_or_404(Report, pk=pk)
-        buffer = BytesIO()
+        buffer = _ensure_report_pdf(report)
+        name = os.path.basename(report.pdf_file.name)
+
+
+        # Отправляем PDF-отчёт в cert.gov.kg с сохранением сессии
+        # login_url = "https://cert.gov.kg/accounts/login/"
+        # url = "https://cert.gov.kg/api/router/report-create"
+        login_url = "http://127.0.0.1:8001/accounts/login/"
+        url = "http://127.0.0.1:8001/api/router/report-create"
+
+        session = requests.Session()
 
         try:
-            pdfmetrics.registerFont(TTFont('TimesNewRoman', r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf'))
-        except:
-            pdfmetrics.registerFont(TTFont('TimesNewRoman', r'C:\Windows\Fonts\times.ttf'))
+            # 1. Авторизация
+            credentials = {
+                "username": "ular@mail.com",
+                "password": "admin",
+            }
 
-        doc = SimpleDocTemplate(
-            buffer, pagesize=A4,
-            rightMargin=40, leftMargin=40,
-            topMargin=60, bottomMargin=40
-        )
-        styles = getSampleStyleSheet()
-        styles['Title'].fontName = 'TimesNewRoman'
-        styles['Normal'].fontName = 'TimesNewRoman'
-        cell = ParagraphStyle('CellStyle', fontName='TimesNewRoman', fontSize=10, leading=12, wordWrap='LTR')
+            login_response = session.post(
+                login_url,
+                json=credentials,
+                timeout=30,
+            )
+            login_response.raise_for_status()
 
-        elems = [Paragraph("Отчет по выявлению аномалий средствами SOC", styles['Title']), Spacer(1, 12)]
-        data = [
-            [Paragraph("Поле", cell), Paragraph("Значение", cell)],
-            [Paragraph("Дата и время", cell), Paragraph(report.detection_date.strftime('%Y-%m-%d'), cell)],
-            [Paragraph("Тип угрозы", cell), Paragraph(report.attack_type, cell)],
-            [Paragraph("Источник угрозы", cell), Paragraph(report.source_ip, cell)],
-
-            [Paragraph("Адрес назначения", cell), Paragraph(report.destination_ip, cell)],
-            [Paragraph("Средство обнаружения", cell), Paragraph(report.detection_tool, cell)],
-            [Paragraph("Краткое описание", cell), Paragraph(report.short_description, cell)],
-            [Paragraph("Методы атаки", cell), Paragraph(report.methods, cell)],
-            [Paragraph("Протоколы и порты", cell), Paragraph(report.protocols_ports, cell)],
-            [Paragraph("Критичность", cell), Paragraph(report.risk_assessment, cell)],
-            [Paragraph("Потенциальные последствия", cell), Paragraph(report.potential_impact, cell)],
-            [Paragraph(["Payload", "Data"][bool(report.host)], cell), Paragraph(report.data_or_payload, cell)],
-            [Paragraph("Реагирование на инцидент", cell),
-             Paragraph(report.response_actions.replace('\n', '<br/>'), cell)],
-        ]
-        if report.detection_tool == 'WAF' and report.host:
-            data.insert(4, [Paragraph("Host", cell), Paragraph(report.host, cell)])
-        elif report.detection_tool == 'IPS' and report.cve:
-            data.insert(4, [Paragraph("CVE", cell), Paragraph(report.cve, cell)])
-
-        table = Table(data, colWidths=[150, 330])
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f0f0f0')),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ]))
-        elems.append(table)
-        doc.build(elems)
-        buffer.seek(0)
-
-        name = f'{report.organization.name_en} {report.source_ip}.pdf'
-
-        # Добавляем по АПИ отчет в cert.gov
-        files = {
-            'file': (name, buffer, 'application/pdf')
-        }
-
-        data = {
-            'body': json.dumps({
-                'username': report.user.username,
-                'organization': report.organization.name_ru,
-                'name': report.attack_type
-            })
-        }
-        try:
-            url = 'https://cert.gov.kg/api/router/report-create'
-            response = requests.post(url, data=data, files=files)
-        except Exception as err:
-            url = 'https://cert.gov.kg/api/router/report-create'
+            # 2. Подготавливаем данные отчёта
             buffer.seek(0)
-            response = requests.post(url, data=data, files=files)
 
+            files = {
+                "file": (name, buffer, "application/pdf"),
+            }
+
+            data = {
+                "body": json.dumps({
+                    "username": report.user.username if report.user else '',
+                    "organization": report.organization.name_ru if report.organization else '',
+                    "name": report.attack_type,
+                }, ensure_ascii=False),
+            }
+
+            response = session.post(
+                url,
+                data=data,
+                files=files,
+                headers={
+                    "Idempotency-Key": str(name),
+                },
+                timeout=60,
+            )
+
+            print("HTTP статус:", response.status_code)
+            print("URL:", response.url)
+            print("Ответ сервера:", response.text)
+
+            response.raise_for_status()
+
+        except requests.RequestException as err:
+            print("Ошибка отправки отчёта в cert.gov.kg:", repr(err))
+
+            if err.response is not None:
+                print("HTTP статус ошибки:", err.response.status_code)
+                print("Тело ответа:", err.response.text)
+        finally:
+            session.close()
+
+        # Возвращаем PDF пользователю
         buffer.seek(0)
-        resp = FileResponse(buffer, as_attachment=True, filename=name, content_type='application/pdf')
-        return resp
+        return FileResponse(
+            buffer,
+            as_attachment=True,
+            filename=name,
+            content_type="application/pdf",
+        )
+
 
 
 def get_static_analytic_file(request):

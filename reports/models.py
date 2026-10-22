@@ -82,3 +82,4 @@ class Report(models.Model):
     data_or_payload = models.TextField("Дата или payload", blank=True)
     response_actions = models.TextField("Реагирование на инцидент", blank=True)
     created_date = models.DateTimeField(auto_now_add=True)
+    pdf_file = models.FileField("PDF отчет", upload_to='reports/pdfs/', blank=True)
