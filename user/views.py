@@ -16,11 +16,8 @@ def user_login_view(request):
             password = form.cleaned_data['password']
 
             user = authenticate(request, username=username, password=password)
-            print('пользователь существует')
             if user:
                 login(request, user)
-                print('залогинились')
-                print(user.is_active)
                 return redirect('reports:report_new')
 
     form = UserLoginForm()

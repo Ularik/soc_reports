@@ -1,469 +1,79 @@
-import json
-import os
-from django.shortcuts import render
-from datetime import datetime, timedelta, time
-from io import BytesIO
-from xml.sax.saxutils import escape
-from django.http import FileResponse, JsonResponse
-from django.contrib import messages
-from django.http import HttpResponse
-from django.shortcuts import redirect, get_object_or_404
-from django.urls import reverse_lazy
-from django.views import View
-from django.views.generic import CreateView, TemplateView, ListView, DetailView
-from django.db.models import Count, Min, Max
-from docx import Document
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont, TTFError
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib import colors
-from .utils import create_stat_report
-from .models import Report, Pattern, Organization, RISK_LEVELS
-from .forms import ReportsForm
-from django.forms.models import model_to_dict
 import base64
-from django.contrib.auth import get_user_model
-import requests
+import json
+import logging
+from datetime import datetime
+
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.cache import cache
-from django.utils import timezone
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Count
+from django.forms.models import model_to_dict
+from django.http import FileResponse, HttpResponse, HttpResponseBadRequest, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse_lazy
 from django.utils.text import get_valid_filename
-from datetime import time
+from django.views import View
+from django.views.generic import DetailView, ListView, TemplateView
+from docx import Document
+
+from .forms import ReportsForm
+from .models import Organization, Pattern, Report, RISK_LEVELS
+from .services import analytics
+from .services.cert_gov import send_report_pdf
+from .services.monthly import build_monthly_rows
+from .services.pdf import build_report_pdf
+from .services.stat_report import create_stat_report
+
+logger = logging.getLogger('reports')
+
+XLSX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+DOCX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+BAD_PERIOD_MESSAGE = 'Некорректный формат даты start/end'
 
 
-User = get_user_model()
-
-def _report_pdf_font():
-    try:
-        pdfmetrics.getFont('TimesNewRoman')
-        return 'TimesNewRoman'
-    except KeyError:
-        pass
-
-    font_paths = (
-        r'/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf',
-        r'/usr/share/fonts/truetype/liberation2/LiberationSerif-Regular.ttf',
-        r'C:\Windows\Fonts\times.ttf',
-        r'C:\Windows\Fonts\arial.ttf',
-    )
-    for font_path in font_paths:
-        if os.path.isfile(font_path):
-            try:
-                pdfmetrics.registerFont(TTFont('TimesNewRoman', font_path))
-                return 'TimesNewRoman'
-            except (OSError, TTFError):
-                continue
-
-    return 'Times-Roman'
-
-
-def _report_paragraph(value, style, multiline=False):
-    text = escape(str(value or ''))
-    if multiline:
-        text = text.replace('\r\n', '\n').replace('\r', '\n').replace('\n', '<br/>')
-    return Paragraph(text, style)
-
-
-def _build_report_pdf(report):
-    buffer = BytesIO()
-    font_name = _report_pdf_font()
-
-    doc = SimpleDocTemplate(
-        buffer, pagesize=A4,
-        rightMargin=40, leftMargin=40,
-        topMargin=60, bottomMargin=40
-    )
-    styles = getSampleStyleSheet()
-    styles['Title'].fontName = font_name
-    styles['Normal'].fontName = font_name
-    cell = ParagraphStyle('CellStyle', fontName=font_name, fontSize=10, leading=12, wordWrap='LTR')
-
-    elems = [_report_paragraph("Отчет по выявлению аномалий средствами SOC", styles['Title']), Spacer(1, 12)]
-    data = [
-        [_report_paragraph("Поле", cell), _report_paragraph("Значение", cell)],
-        [_report_paragraph("Дата и время", cell), _report_paragraph(report.detection_date.strftime('%Y-%m-%d'), cell)],
-        [_report_paragraph("Тип угрозы", cell), _report_paragraph(report.attack_type, cell)],
-        [_report_paragraph("Источник угрозы", cell), _report_paragraph(report.source_ip, cell)],
-        [_report_paragraph("Адрес назначения", cell), _report_paragraph(report.destination_ip, cell)],
-        [_report_paragraph("Средство обнаружения", cell), _report_paragraph(report.detection_tool, cell)],
-        [_report_paragraph("Краткое описание", cell), _report_paragraph(report.short_description, cell, multiline=True)],
-        [_report_paragraph("Методы атаки", cell), _report_paragraph(report.methods, cell)],
-        [_report_paragraph("Протоколы и порты", cell), _report_paragraph(report.protocols_ports, cell)],
-        [_report_paragraph("Критичность", cell), _report_paragraph(report.risk_assessment, cell)],
-        [_report_paragraph("Потенциальные последствия", cell), _report_paragraph(report.potential_impact, cell, multiline=True)],
-        [_report_paragraph("Payload" if report.host else "Data", cell),
-         _report_paragraph(report.data_or_payload, cell, multiline=True)],
-        [_report_paragraph("Реагирование на инцидент", cell),
-         _report_paragraph(report.response_actions, cell, multiline=True)],
-    ]
-    if report.detection_tool == 'WAF' and report.host:
-        data.insert(4, [_report_paragraph("Host", cell), _report_paragraph(report.host, cell)])
-    elif report.detection_tool == 'IPS' and report.cve:
-        data.insert(4, [_report_paragraph("CVE", cell), _report_paragraph(report.cve, cell)])
-
-    table = Table(data, colWidths=[150, 330])
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f0f0f0')),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-    ]))
-    elems.append(table)
-    doc.build(elems)
-    buffer.seek(0)
-    return buffer
-
-
-@login_required(login_url='user/login/')
+@login_required
 def report_create_view(request):
-    template_name = 'reports/report_waf_form.html'
-
     if request.method == 'POST':
         form = ReportsForm(request.POST)
-        success_url = reverse_lazy('reports:report_new')
-
         if form.is_valid():
-            # Получаем объект формы, но не сохраняем его сразу в БД
             report = form.save(commit=False)
             report.user = request.user
             report.save()
 
             messages.success(request, 'Отчет отправлен')
-
-            return redirect(f"{success_url}?download={report.pk}")
+            # ?download запускает скачивание PDF на странице формы
+            return redirect(f"{reverse_lazy('reports:report_new')}?download={report.pk}")
 
         invalid_fields = [
-            form.fields[field_name].label or field_name
-            for field_name in form.errors
-            if field_name in form.fields
+            form.fields[name].label or name for name in form.errors if name in form.fields
         ]
         if form.non_field_errors():
             invalid_fields.append('данные формы')
-        messages.error(
-            request,
-            'Не удалось создать отчет. Проверьте поля: '
-            + ', '.join(invalid_fields),
-        )
+        messages.error(request, 'Не удалось создать отчет. Проверьте поля: ' + ', '.join(invalid_fields))
     else:
         form = ReportsForm()
-    # JSON для автозаполнения описания по типу атаки
-    attack_types = {}
-    for obj in Pattern.objects.all():
-        data = model_to_dict(obj)
-        attack_types[obj.pk] = data
-    return render(request, template_name, context={
-        'pattern': json.dumps(attack_types, ensure_ascii=False),
-        'form': form
-        })
+
+    # шаблоны отдаём в JSON для автозаполнения формы по выбранному шаблону
+    patterns = {pattern.pk: model_to_dict(pattern) for pattern in Pattern.objects.all()}
+    return render(request, 'reports/report_waf_form.html', {
+        'pattern': json.dumps(patterns, ensure_ascii=False),
+        'form': form,
+    })
 
 
-class ReportDownloadView(View):
+class ReportDownloadView(LoginRequiredMixin, View):
     def get(self, request, pk):
         report = get_object_or_404(Report, pk=pk)
-        buffer = _build_report_pdf(report)
+        pdf = build_report_pdf(report)
         organization_name = report.organization.name_en if report.organization else 'report'
-        name = get_valid_filename(
-            f'{report.pk}_{organization_name}_{report.source_ip}.pdf'
-        )
+        filename = get_valid_filename(f'{report.pk}_{organization_name}_{report.source_ip}.pdf')
 
+        send_report_pdf(report, filename, pdf)
 
-        # Отправляем PDF-отчёт в cert.gov.kg с сохранением сессии
-        # login_url = "https://cert.gov.kg/accounts/login/"
-        # url = "https://cert.gov.kg/api/router/report-create"
-        login_url = "http://127.0.0.1:8001/accounts/login/"
-        url = "http://127.0.0.1:8001/api/router/report-create"
+        return FileResponse(pdf, as_attachment=True, filename=filename, content_type='application/pdf')
 
-        session = requests.Session()
 
-        try:
-            # 1. Авторизация
-            credentials = {
-                "username": "ular@mail.com",
-                "password": "alaska223A",
-            }
-
-            login_response = session.post(
-                login_url,
-                json=credentials,
-                timeout=30,
-            )
-            login_response.raise_for_status()
-
-            # 2. Подготавливаем данные отчёта
-            buffer.seek(0)
-
-            files = {
-                "file": (name, buffer, "application/pdf"),
-            }
-
-            data = {
-                "body": json.dumps({
-                    "username": report.user.username if report.user else '',
-                    "organization": report.organization.name_ru if report.organization else '',
-                    "name": report.attack_type,
-                }, ensure_ascii=False),
-            }
-
-            response = session.post(
-                url,
-                data=data,
-                files=files,
-                headers={
-                    "Idempotency-Key": str(name),
-                },
-                timeout=60,
-            )
-
-            print("HTTP статус:", response.status_code)
-            print("URL:", response.url)
-            print("Ответ сервера:", response.text)
-
-            response.raise_for_status()
-
-        except requests.RequestException as err:
-            print("Ошибка отправки отчёта в cert.gov.kg:", repr(err))
-
-            if err.response is not None:
-                print("HTTP статус ошибки:", err.response.status_code)
-                print("Тело ответа:", err.response.text)
-        finally:
-            session.close()
-
-        # Возвращаем PDF пользователю
-        buffer.seek(0)
-        return FileResponse(
-            buffer,
-            as_attachment=True,
-            filename=name,
-            content_type="application/pdf",
-        )
-
-
-
-def get_static_analytic_file(request):
-
-    reports = Report.objects.values('user__username', 'organization__name_en', 'risk_assessment').annotate(count=Count('id'))
-
-    start = datetime.fromisoformat(request.GET.get('start'))
-    end = datetime.fromisoformat(request.GET.get('end'))
-
-    reports = reports.filter(detection_date__range=(start, end))
-
-    reports_dicts = {}
-
-    for report in reports:
-        reports_dicts[report['user__username']] = reports_dicts.get(report['user__username'], {})
-        reports_dicts[report['user__username']][report['organization__name_en']] = reports_dicts[report['user__username']].get(report['organization__name_en'], {})
-        reports_dicts[report['user__username']][report['organization__name_en']][report['risk_assessment']] = reports_dicts[report['user__username']][report['organization__name_en']].get(report['risk_assessment'], {})
-        reports_dicts[report['user__username']][report['organization__name_en']][report['risk_assessment']] = report['count']
-
-
-    output = create_stat_report(reports_dicts, start=start, end=end)
-    # Кодируем файл в base64
-    excel_file_base64 = base64.b64encode(output.getvalue()).decode('utf-8')
-
-    # Формируем JSON-ответ
-    response_data = {
-        "reports": reports_dicts,
-        "file": {
-            "filename": "report_kcokb.xlsx",
-            "content": excel_file_base64,
-            "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        }
-    }
-
-    return JsonResponse(response_data)
-
-
-def get_departments(request):
-    qs = list(Organization.objects.values_list('name_en', 'name_ru', 'pk'))
-    return JsonResponse(qs, safe=False)
-
-
-def analytics_view(request):
-    return render(request, 'reports/analytics.html', {})
-
-
-def get_filtered_qs(start=None, end=None):
-    today = timezone.localdate()
-
-    # если не переданы даты — берем сегодняшний день
-    if not start:
-        start = timezone.make_aware(
-            timezone.datetime.combine(today, time.min)
-        )
-
-    if not end:
-        end = timezone.make_aware(
-            timezone.datetime.combine(today, time.max)
-        )
-
-    return Report.objects.filter(
-        detection_date__range=(start, end)
-    )
-
-
-def get_attack_types_for_chart(request):
-    contex = {}
-    department = request.GET.get('department')
-    start = request.GET.get('start')
-    end = request.GET.get('end')
-
-    filtered = get_filtered_qs(start, end)
-    if not filtered:
-        contex.update({'labels': [], 'data': []})
-        return JsonResponse(contex)
-
-
-    if department:
-        filtered = filtered.filter(organization=department)
-
-    # Группировка
-    qs = (
-        filtered
-        .values('attack_type')
-        .annotate(count=Count('id'))
-        .order_by('-count')
-    )
-
-    max_attack_types = 10   # вытаскивам первые 10 наиболее встречающихся видов атак
-    top = list(qs[:max_attack_types])
-    others = list(qs[max_attack_types:])
-
-    labels = [item['attack_type'] for item in top]
-    data = [item['count'] for item in top]
-    total = sum(data)
-
-    if others:
-        other_sum = sum(item['count'] for item in others)
-        labels.append('Прочие')
-        data.append(round(other_sum / total * 100, 2))
-
-    contex.update({
-        'labels': labels,
-        'data': data,
-        'total': total,
-        'start': start,
-        'end': end,
-    })
-    return JsonResponse(contex)
-
-
-def get_risk_assessments_reports(request):
-    contex = {}
-    department = request.GET.get('department')
-    start = request.GET.get('start')
-    end = request.GET.get('end')
-
-    # Получаем границы из БД, если их нет
-    filtered = get_filtered_qs(start, end)
-    if not filtered:
-        contex.update({'labels': [], 'data': []})
-        return JsonResponse(contex)
-
-    if department:
-        filtered = filtered.filter(organization=department)
-
-    # Группировка
-    qs = (
-        filtered
-        .values('risk_assessment')
-        .annotate(count=Count('id'))
-        .order_by('-count')
-    )
-
-    labels = [item['risk_assessment'] for item in qs]
-    data = [item['count'] for item in qs]
-    total = sum(data)
-
-    contex.update({
-        'labels': labels,
-        'data': data,
-        'total': total,
-        'start': start,
-        'end': end,
-    })
-    return JsonResponse(contex)
-
-
-def get_countries_attacks(request):
-    contex = {}
-    department = request.GET.get('department')
-    start = request.GET.get('start')
-    end = request.GET.get('end')
-
-    # Получаем границы из БД, если их нет
-    filtered = get_filtered_qs(start, end)
-
-    if not filtered:
-        contex.update({'labels': [], 'data': []})
-        return JsonResponse(contex)
-
-    if department:
-        filtered = filtered.filter(organization=department)
-
-    # Группировка
-    qs = (
-        filtered
-        .values('country')
-        .annotate(count=Count('id'))
-        .order_by('-count')
-    )
-
-    max_attack_types = 10   # вытаскивам первые 10 наиболее встречающихся видов атак
-    top = list(qs[:max_attack_types])
-    others = list(qs[max_attack_types:])
-
-    labels = [item['country'] for item in top]
-    data = [item['count'] for item in top]
-    total = sum(data)
-    print(labels, total)
-
-    if others:
-        other_sum = sum(item['count'] for item in others)
-        labels.append('Прочие')
-        data.append(other_sum)
-
-    contex.update({
-        'labels': labels,
-        'data': data,
-        'total': total,
-        'start': start,
-        'end': end,
-    })
-    return JsonResponse(contex)
-
-
-def get_ip_count(request):
-    contex = {}
-    department = request.GET.get('department')
-    start = request.GET.get('start')
-    end = request.GET.get('end')
-
-    # Получаем границы из БД, если их нет
-    filtered = get_filtered_qs(start, end)
-
-    if department:
-        filtered = filtered.filter(organization=department)
-
-    ip_lists = filtered.values('source_ip', 'country').annotate(count=Count('id')).order_by('-count')
-
-    group_ip = {}
-    for ip_obj in ip_lists[:10]:
-        group_ip.setdefault(ip_obj['source_ip'], []).append([ip_obj['country'], ip_obj['count']])
-
-    total = filtered.values('source_ip').annotate(count=Count('id')).count()
-    contex.update({
-        'data': group_ip,
-        'total': total,
-        'start': start,
-        'end': end,
-    })
-    return JsonResponse(contex)
-
-
-class ReportListView(ListView):
+class ReportListView(LoginRequiredMixin, ListView):
     model = Report
     template_name = 'reports/report_list.html'
     context_object_name = 'reports'
@@ -475,18 +85,11 @@ class ReportListView(ListView):
         end = self.request.GET.get('end')
         if start and end:
             try:
-                # Парсим даты
-                sd_date = datetime.strptime(start, "%Y-%m-%d").date()
-                ed_date = datetime.strptime(end, "%Y-%m-%d").date()
-                # Границы суток
-                sd = datetime.combine(sd_date, time.min)
-                ed = datetime.combine(ed_date, time.max)
-                qs = qs.filter(
-                    detection_date__gte=sd,
-                    detection_date__lte=ed
-                )
+                start_date = datetime.strptime(start, '%Y-%m-%d').date()
+                end_date = datetime.strptime(end, '%Y-%m-%d').date()
             except ValueError:
-                pass
+                return qs
+            qs = qs.filter(detection_date__date__gte=start_date, detection_date__date__lte=end_date)
         return qs
 
     def get_context_data(self, **kwargs):
@@ -496,150 +99,186 @@ class ReportListView(ListView):
         return ctx
 
 
-class ReportDetailView(DetailView):
+class ReportDetailView(LoginRequiredMixin, DetailView):
     model = Report
     template_name = 'reports/report_detail.html'
     context_object_name = 'report'
 
 
-def export_monthly_reports(request):
-    org_id = request.GET.get('org')
-    start = request.GET.get('start')
-    end = request.GET.get('end')
-
-    rows = []
-    if org_id and start and end:
-        try:
-            sd = datetime.strptime(start, "%Y-%m-%d")
-            ed = datetime.strptime(end, "%Y-%m-%d") + timedelta(days=1)
-        except ValueError:
-            sd = ed = None
-
-        if sd and ed:
-            qs = Report.objects.filter(
-                organization_id=org_id,
-                detection_date__gte=sd,
-                detection_date__lt=ed
-            )
-        else:
-            qs = Report.objects.filter(organization_id=org_id)
-
-        # Сбор данных по каждому source_ip…
-        for src in qs.values_list('source_ip', flat=True).distinct():
-            group = qs.filter(source_ip=src)
-            cnt = group.count()
-            rec = None
-            for level, _ in RISK_LEVELS:
-                rec = group.filter(risk_assessment=level).order_by('detection_date').first()
-                if rec:
-                    break
-            rec = rec or group.order_by('detection_date').first()
-            rows.append({
-                'destination': ', '.join(group.values_list('destination_ip', flat=True).distinct()),
-                'source': src,
-                'warning': rec.attack_type,
-                'priority': rec.risk_assessment,
-            })
-
-    # Генерация .docx…
-    doc = Document()
-    doc.add_heading(f'Ежемесячный отчет {start}–{end}', level=1)
-    table = doc.add_table(rows=1, cols=5)
-    hdr = table.rows[0].cells
-    hdr[0].text = '№'
-    hdr[1].text = 'Destination IP'
-    hdr[2].text = 'Source IP'
-    hdr[3].text = 'Предупреждение'
-    hdr[4].text = 'Критичность'
-
-    for i, row in enumerate(rows, start=1):
-        cells = table.add_row().cells
-        cells[0].text = str(i)
-        cells[1].text = row['destination']
-        cells[2].text = row['source']
-        cells[3].text = row['warning']
-        cells[4].text = row['priority']
-
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    )
-    filename = f"monthly_report_{org_id}_{start}_{end}.docx"
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    doc.save(response)
-    return response
+def _monthly_rows(org_id, start, end):
+    if not (org_id and start and end):
+        return []
+    try:
+        return build_monthly_rows(org_id, start, end)
+    except ValueError:
+        return []
 
 
-class MonthlyReportView(TemplateView):
+class MonthlyReportView(LoginRequiredMixin, TemplateView):
     template_name = 'reports/monthly_reports.html'
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['organizations'] = Organization.objects.order_by('name_en')
-        ctx['risk_levels'] = RISK_LEVELS
-
         org_id = self.request.GET.get('org')
         start = self.request.GET.get('start')
         end = self.request.GET.get('end')
-        ctx['selected_org'] = int(org_id) if org_id else None
-        ctx['selected_start'] = start
-        ctx['selected_end'] = end
 
-        rows = []
-        if org_id and start and end:
-            try:
-                sd_date = datetime.strptime(start, "%Y-%m-%d").date()
-                ed_date = datetime.strptime(end, "%Y-%m-%d").date()
-            except ValueError:
-                ctx['reports'] = rows
-                return ctx
-
-            sd = datetime.combine(sd_date, time.min)
-            ed = datetime.combine(ed_date, time.max)
-
-            qs = Report.objects.filter(
-                organization_id=org_id,
-                detection_date__gte=sd,
-                detection_date__lte=ed
-            )
-
-            for src in qs.values_list('source_ip', flat=True).distinct():
-                group = qs.filter(source_ip=src)
-                cnt = group.count()
-
-                # Выбор записи по приоритету
-                rec = None
-                for level, _ in RISK_LEVELS:
-                    rec = group.filter(risk_assessment=level) \
-                        .order_by('detection_date') \
-                        .first()
-                    if rec:
-                        break
-                rec = rec or group.order_by('detection_date').first()
-
-                rows.append({
-                    'rec': rec,
-                    'destination_ips': list(group.values_list('destination_ip', flat=True).distinct()),
-                    'source_ip': src,
-                    'warning': rec.attack_type,
-                    'priority': rec.risk_assessment,
-                    'requests': cnt,
-                })
-
-        ctx['reports'] = rows
+        ctx.update({
+            'organizations': Organization.objects.order_by('name_en'),
+            'risk_levels': RISK_LEVELS,
+            'selected_org': int(org_id) if org_id else None,
+            'selected_start': start,
+            'selected_end': end,
+            'reports': _monthly_rows(org_id, start, end),
+        })
         return ctx
 
     def post(self, request, *args, **kwargs):
-        # Проходим по всем полям POST
-        for key, val in request.POST.items():
-            # Ищем только те, где имя начинается с manual_priority_
-            if key.startswith('manual_priority_') and val:
-                # Вычленяем pk записи
-                rec_pk = key.split('manual_priority_')[1]
-                # Обновляем только если пользователь выбрал значение (val != '')
-                Report.objects.filter(pk=rec_pk).update(risk_assessment=val)
+        # поля вида manual_priority_<pk> вручную меняют критичность отчёта
+        prefix = 'manual_priority_'
+        for key, value in request.POST.items():
+            if key.startswith(prefix) and value:
+                Report.objects.filter(pk=key.removeprefix(prefix)).update(risk_assessment=value)
 
-        # Сохраняем фильтры, чтобы после редиректа форма не сбросилась
         org = request.POST.get('org', '')
         start = request.POST.get('start', '')
         end = request.POST.get('end', '')
-        return redirect(f"{request.path}?org={org}&start={start}&end={end}")
+        return redirect(f'{request.path}?org={org}&start={start}&end={end}')
+
+
+@login_required
+def export_monthly_reports(request):
+    org_id = request.GET.get('org')
+    start = request.GET.get('start')
+    end = request.GET.get('end')
+    rows = _monthly_rows(org_id, start, end)
+
+    doc = Document()
+    doc.add_heading(f'Ежемесячный отчет {start}–{end}', level=1)
+    table = doc.add_table(rows=1, cols=5)
+    titles = ('№', 'Destination IP', 'Source IP', 'Предупреждение', 'Критичность')
+    for cell, title in zip(table.rows[0].cells, titles):
+        cell.text = title
+
+    for number, row in enumerate(rows, start=1):
+        cells = table.add_row().cells
+        cells[0].text = str(number)
+        cells[1].text = ', '.join(row['destination_ips'])
+        cells[2].text = row['source_ip']
+        cells[3].text = row['warning']
+        cells[4].text = row['priority']
+
+    response = HttpResponse(content_type=DOCX_CONTENT_TYPE)
+    response['Content-Disposition'] = f'attachment; filename="monthly_report_{org_id}_{start}_{end}.docx"'
+    doc.save(response)
+    return response
+
+
+@login_required
+def analytics_view(request):
+    return render(request, 'reports/analytics.html', {})
+
+
+@login_required
+def get_departments(request):
+    return JsonResponse(list(Organization.objects.values_list('name_en', 'name_ru', 'pk')), safe=False)
+
+
+def _period_reports(request):
+    """Отчёты за период из GET-параметров department/start/end; ValueError при неверной дате."""
+    return analytics.reports_for_period(
+        request.GET.get('start'), request.GET.get('end'), request.GET.get('department'),
+    )
+
+
+def _chart_response(request, field, with_top=False, others_as_percent=False):
+    """Данные для графика: количество отчётов по значениям поля `field`.
+
+    with_top — оставить топ-10 значений, остальные свести в «Прочие».
+    others_as_percent — «Прочие» отдавать долей от суммы топа в процентах
+    (на это рассчитан график типов атак во фронтенде).
+    """
+    try:
+        qs = _period_reports(request)
+    except ValueError:
+        return HttpResponseBadRequest(BAD_PERIOD_MESSAGE)
+
+    rows = analytics.count_by(qs, field)
+    if not rows:
+        return JsonResponse({'labels': [], 'data': []})
+
+    others = 0
+    if with_top:
+        rows, others = analytics.split_top(rows)
+
+    labels = [label for label, _ in rows]
+    data = [count for _, count in rows]
+    total = sum(data)
+
+    if others:
+        labels.append(analytics.OTHERS_LABEL)
+        data.append(round(others / total * 100, 2) if others_as_percent else others)
+
+    return JsonResponse({
+        'labels': labels,
+        'data': data,
+        'total': total,
+        'start': request.GET.get('start'),
+        'end': request.GET.get('end'),
+    })
+
+
+@login_required
+def get_attack_types_for_chart(request):
+    return _chart_response(request, 'attack_type', with_top=True, others_as_percent=True)
+
+
+@login_required
+def get_risk_assessments_reports(request):
+    return _chart_response(request, 'risk_assessment')
+
+
+@login_required
+def get_countries_attacks(request):
+    return _chart_response(request, 'country', with_top=True)
+
+
+@login_required
+def get_ip_count(request):
+    try:
+        qs = _period_reports(request)
+    except ValueError:
+        return HttpResponseBadRequest(BAD_PERIOD_MESSAGE)
+
+    by_ip_country = qs.values('source_ip', 'country').annotate(count=Count('id')).order_by('-count')
+    data = {}
+    for row in by_ip_country[:analytics.TOP_LIMIT]:
+        data.setdefault(row['source_ip'], []).append([row['country'], row['count']])
+
+    return JsonResponse({
+        'data': data,
+        'total': qs.values('source_ip').distinct().count(),
+        'start': request.GET.get('start'),
+        'end': request.GET.get('end'),
+    })
+
+
+@login_required
+def get_static_analytic_file(request):
+    try:
+        start = datetime.fromisoformat(request.GET['start'])
+        end = datetime.fromisoformat(request.GET['end'])
+    except (KeyError, ValueError):
+        return HttpResponseBadRequest('Необходимы параметры start и end в формате ISO')
+
+    reports = analytics.stats_by_user(start, end)
+    output = create_stat_report(reports, start=start, end=end)
+
+    return JsonResponse({
+        'reports': reports,
+        'file': {
+            'filename': 'report_kcokb.xlsx',
+            'content': base64.b64encode(output.getvalue()).decode('utf-8'),
+            'content_type': XLSX_CONTENT_TYPE,
+        },
+    })

@@ -3,8 +3,7 @@ from django.db import models
 from six import python_2_unicode_compatible
 from django.utils.translation import gettext_lazy as _
 import requests
-from project.settings_local import *
-from project.settings_local import DEV, SEND_BOT
+from django.conf import settings
 
 LOG_LEVELS = (
     (logging.NOTSET, _('NotSet')),
@@ -30,16 +29,16 @@ class StatusLog(models.Model):
     def save(self, *args, **kwargs):
         levels = {40: 'Error', 50: 'Fatal'}
         level = levels.get(self.level)
-        if level and SEND_BOT:
-            text = f'{"<b>DEV</b> " if DEV else ""}<b>{level}</b>\n{self.msg}\n{self.trace}'
+        if level and settings.SEND_BOT:
+            text = f'{"<b>DEV</b> " if settings.DEV else ""}<b>{level}</b>\n{self.msg}\n{self.trace}'
 
             data = {
                 'text': text,
                 'parse_mode': 'html',
-                'chat_id': CHAT_ID,
+                'chat_id': settings.CHAT_ID,
             }
 
-            requests.post(f'https://api.telegram.org/bot{BOT_ID}/sendMessage', data=data)
+            requests.post(f'https://api.telegram.org/bot{settings.BOT_ID}/sendMessage', data=data)
         super(StatusLog, self).save(*args, **kwargs)
 
     class Meta:

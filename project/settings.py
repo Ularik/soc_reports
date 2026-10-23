@@ -1,9 +1,31 @@
-from .settings_local import *
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-import os
+load_dotenv(BASE_DIR / '.env')
+
+
+def env_list(name):
+    return [item.strip() for item in os.environ.get(name, '').split(',') if item.strip()]
+
+
+def env_bool(name, default=False):
+    return os.environ.get(name, str(default)).lower() in ('1', 'true', 'yes')
+
+
+DEV = env_bool('DEV')
+DEBUG = env_bool('DEBUG')
+SECRET_KEY = os.environ['SECRET_KEY']
+ALLOWED_HOSTS = env_list('ALLOWED_HOSTS')
+CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS')
+
+# Telegram-бот для отправки ошибок из логов
+SEND_BOT = env_bool('SEND_BOT')
+CHAT_ID = os.environ.get('CHAT_ID', '')
+BOT_ID = os.environ.get('BOT_ID', '')
 
 # Application definition
 
@@ -59,11 +81,11 @@ WSGI_APPLICATION = 'project.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': DB_NAME_DEV,  # Имя вашей базы данных
-        'USER': DB_USER_DEV,      # Имя вашего пользователя
-        'PASSWORD': DB_PASS_DEV,  # Ваш пароль
-        'HOST': DB_HOST_DEV,   # Хост, на котором работает PostgreSQL
-        'PORT': DB_PORT_DEV,            # Порт (по умолчанию 5432)
+        'NAME': os.environ['DB_NAME'],
+        'USER': os.environ['DB_USER'],
+        'PASSWORD': os.environ['DB_PASSWORD'],
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
 
@@ -189,3 +211,10 @@ LOGGING = {
 }
 
 DJANGO_DB_LOGGER_ENABLE_FORMATTER = True
+
+LOGIN_URL = '/user/login/'
+
+# Интеграция с cert.gov.kg (пустой URL отключает отправку отчётов)
+CERT_GOV_API_URL = os.environ.get('CERT_GOV_API_URL', '')
+CERT_GOV_USERNAME = os.environ.get('CERT_GOV_USERNAME', '')
+CERT_GOV_PASSWORD = os.environ.get('CERT_GOV_PASSWORD', '')

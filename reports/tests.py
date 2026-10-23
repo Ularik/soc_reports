@@ -3,10 +3,12 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.test import SimpleTestCase
+from django.urls import reverse
 
 from .models import Report
 from .forms import ReportsForm
-from .views import _build_report_pdf
+from .services import analytics
+from .services.pdf import build_report_pdf
 
 
 class ReportPdfGenerationTests(SimpleTestCase):
@@ -28,7 +30,7 @@ class ReportPdfGenerationTests(SimpleTestCase):
             cve='',
         )
 
-        pdf = _build_report_pdf(report)
+        pdf = build_report_pdf(report)
 
         self.assertTrue(pdf.getvalue().startswith(b'%PDF-'))
 
@@ -44,7 +46,7 @@ class ReportPdfGenerationTests(SimpleTestCase):
             organization=None,
         )
 
-        pdf = _build_report_pdf(report)
+        pdf = build_report_pdf(report)
 
         self.assertTrue(pdf.getvalue().startswith(b'%PDF-'))
         self.assertFalse(report.pdf_file.name)
@@ -59,3 +61,33 @@ class ReportPdfGenerationTests(SimpleTestCase):
         self.assertIn('destination_ip', form.errors)
         self.assertIn('detection_tool', form.errors)
         self.assertIn('short_description', form.errors)
+
+
+class AnalyticsPeriodTests(SimpleTestCase):
+    def test_date_only_end_covers_the_whole_day(self):
+        start, end = analytics.parse_period('2026-10-01', '2026-10-02')
+
+        self.assertEqual((start.hour, start.minute), (0, 0))
+        self.assertEqual((end.day, end.hour, end.minute), (2, 23, 59))
+
+    def test_invalid_date_raises_value_error(self):
+        with self.assertRaises(ValueError):
+            analytics.parse_period('not-a-date', None)
+
+    def test_split_top_sums_the_rest(self):
+        rows = [(f'a{i}', 1) for i in range(12)]
+
+        top, others = analytics.split_top(rows)
+
+        self.assertEqual(len(top), 10)
+        self.assertEqual(others, 2)
+
+
+class LoginRequiredTests(SimpleTestCase):
+    def test_anonymous_user_is_redirected_to_login(self):
+        for name in ('reports:report_list', 'reports:report_analytics', 'reports:attack_risc',
+                     'reports:report_monthly', 'reports:report_monthly_export'):
+            response = self.client.get(reverse(name))
+
+            self.assertEqual(response.status_code, 302, name)
+            self.assertTrue(response['Location'].startswith('/user/login/'), name)

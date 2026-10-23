@@ -2,6 +2,7 @@
 .idea
 logs
 project/settings_local.py
+.env
 __pycache__/
 **/__pycache__/
 *.pyc

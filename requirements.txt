@@ -9,3 +9,4 @@ six
 psycopg2-binary
 openpyxl
 redis
+python-dotenv

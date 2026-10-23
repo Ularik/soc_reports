@@ -1,16 +1,17 @@
+from copy import copy
+from io import BytesIO
+
+from django.conf import settings
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
-from django.contrib.auth import get_user_model
-from user.models import CustomUser
-from io import BytesIO
-from openpyxl.utils import get_column_letter
-from copy import copy
 
-User = get_user_model()
+from user.models import CustomUser
+
+TEMPLATE_PATH = settings.BASE_DIR / 'reports' / 'stat_rep_template' / 'pattern.xlsx'
 
 
 def create_stat_report(data, start, end):
-    workbook = load_workbook('reports/stat_rep_template/pattern.xlsx')
+    workbook = load_workbook(TEMPLATE_PATH)
     ws = workbook['Лист1']  # Указываем имя листа
 
     start_day, start_month = start.day, start.month
